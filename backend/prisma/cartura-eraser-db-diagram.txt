@@ -1,0 +1,352 @@
+users [icon: user, color: lightblue] {
+  id UUID7 pk
+  name string
+  email string unique
+  email_verified boolean
+  image string nullable
+  two_factor_enabled boolean
+  account_status string "active|suspended|disabled"
+  created_at datetime
+  updated_at datetime
+}
+
+auth_sessions [icon: key, color: gray] {
+  id string pk
+  token string unique
+  user_id UUID fk
+  expiresAt datetime
+  ipAddress string nullable
+  userAgent string nullable
+  createdAt datetime
+  updatedAt datetime
+}
+
+auth_accounts_better [icon: shield, color: gray] {
+  id string pk
+  accountId string
+  providerId string
+  user_id UUID fk
+  password string nullable
+  accessToken string nullable
+  refreshToken string nullable
+  idToken string nullable
+  scope string nullable
+  createdAt datetime
+  updatedAt datetime
+}
+
+auth_verifications [icon: mail, color: gray] {
+  id string pk
+  identifier string
+  value string
+  expiresAt datetime
+  createdAt datetime
+  updatedAt datetime
+}
+
+auth_two_factors [icon: lock, color: gray] {
+  id string pk
+  user_id UUID fk
+  secret string
+  backupCodes string
+  verified boolean
+}
+
+roles [icon: badge, color: purple] {
+  id UUID7 pk
+  name string unique
+  description string nullable
+  is_system_role boolean
+  created_at datetime
+  updated_at datetime
+}
+
+permissions [icon: key-round, color: purple] {
+  id UUID7 pk
+  name string unique
+  description string nullable
+  created_at datetime
+  updated_at datetime
+}
+
+user_roles [icon: link, color: purple] {
+  user_id UUID pk fk
+  role_id UUID pk fk
+  assigned_by UUID nullable fk
+  assigned_at datetime
+}
+
+role_permissions [icon: link, color: purple] {
+  role_id UUID pk fk
+  permission_id UUID pk fk
+}
+
+addresses [icon: map-pin, color: orange] {
+  id UUID7 pk
+  user_id UUID fk
+  address_name string
+  recipient_name string
+  phone_number string
+  country string
+  city string
+  area string
+  street_address string
+  postal_code string nullable
+  is_default boolean "partial unique per user when true"
+  created_at datetime
+  updated_at datetime
+}
+
+categories [icon: folder-tree, color: green] {
+  id UUID7 pk
+  parent_category_id UUID nullable fk
+  name string
+  slug string unique
+  description string nullable
+  image_url string nullable
+  is_active boolean
+  created_by UUID nullable fk
+  created_at datetime
+  updated_at datetime
+}
+
+products [icon: package, color: green] {
+  id UUID7 pk
+  name string
+  slug string unique
+  description string nullable
+  sku string unique
+  price decimal ">= 0"
+  stock_quantity int ">= 0"
+  is_active boolean
+  created_by UUID nullable fk
+  created_at datetime
+  updated_at datetime
+}
+
+product_categories [icon: link, color: green] {
+  product_id UUID pk fk
+  category_id UUID pk fk
+}
+
+product_images [icon: image, color: green] {
+  id UUID7 pk
+  product_id UUID fk
+  image_url string
+  alt_text string nullable
+  display_order int ">= 0"
+  created_at datetime
+  updated_at datetime
+}
+
+carts [icon: shopping-cart, color: yellow] {
+  id UUID7 pk
+  user_id UUID unique fk
+  created_at datetime
+  updated_at datetime
+}
+
+cart_items [icon: shopping-bag, color: yellow] {
+  cart_id UUID pk fk
+  product_id UUID pk fk
+  quantity int "> 0"
+  created_at datetime
+  updated_at datetime
+}
+
+orders [icon: receipt, color: red] {
+  id UUID7 pk
+  user_id UUID fk
+  order_number string unique
+  status string "pending|confirmed|processing|shipped|delivered|cancelled|refunded"
+  subtotal decimal ">= 0"
+  shipping_cost decimal ">= 0"
+  discount_amount decimal ">= 0"
+  total_amount decimal ">= 0"
+  currency string "ISO-4217 uppercase"
+  notes string nullable
+  completed_at datetime nullable
+  cancelled_at datetime nullable
+  created_at datetime
+  updated_at datetime
+}
+
+order_addresses [icon: map, color: red] {
+  order_id UUID pk fk
+  recipient_name string
+  phone_number string
+  country string
+  city string
+  area string
+  street_address string
+  postal_code string nullable
+}
+
+order_items [icon: list, color: red] {
+  id UUID7 pk
+  order_id UUID fk
+  product_id UUID fk
+  product_name string
+  product_sku string
+  unit_price decimal ">= 0"
+  quantity int "> 0"
+  total_price decimal ">= 0"
+}
+
+order_status_history [icon: history, color: red] {
+  id UUID7 pk
+  order_id UUID fk
+  changed_by UUID nullable fk
+  actor_type string "customer|staff|system"
+  previous_status string nullable
+  new_status string
+  note string nullable
+  created_at datetime
+}
+
+payments [icon: credit-card, color: teal] {
+  id UUID7 pk
+  order_id UUID unique fk
+  provider string
+  provider_transaction_id string nullable
+  idempotency_key string unique
+  payment_method string
+  status string "pending|requires_action|authorized|paid|failed|cancelled|refunded|partially_refunded"
+  amount decimal ">= 0"
+  currency string "ISO-4217 uppercase"
+  failure_reason string nullable
+  metadata json nullable
+  paid_at datetime nullable
+  refunded_at datetime nullable
+  created_at datetime
+  updated_at datetime
+}
+
+payment_webhook_events [icon: webhook, color: teal] {
+  id UUID7 pk
+  payment_id UUID nullable fk
+  provider string
+  provider_event_id string
+  event_type string
+  status string "pending|processing|processed|failed|ignored"
+  attempts int ">= 0"
+  payload json
+  failure_reason string nullable
+  received_at datetime
+  processed_at datetime nullable
+}
+
+refunds [icon: rotate-ccw, color: teal] {
+  id UUID7 pk
+  payment_id UUID fk
+  initiated_by UUID nullable fk
+  provider_refund_id string nullable
+  amount decimal "> 0"
+  currency string "ISO-4217 uppercase"
+  status string "pending|processing|completed|failed|cancelled"
+  reason string nullable
+  failure_reason string nullable
+  created_at datetime
+  updated_at datetime
+  completed_at datetime nullable
+  failed_at datetime nullable
+}
+
+notifications [icon: bell, color: pink] {
+  id UUID7 pk
+  user_id UUID fk
+  type string
+  title string
+  body string
+  data json nullable
+  read_at datetime nullable
+  created_at datetime
+}
+
+notification_deliveries [icon: send, color: pink] {
+  id UUID7 pk
+  notification_id UUID fk
+  channel string
+  recipient string
+  status string "pending|sent|failed|cancelled"
+  attempts int ">= 0"
+  provider_message_id string nullable
+  failure_reason string nullable
+  scheduled_at datetime nullable
+  sent_at datetime nullable
+  created_at datetime
+  updated_at datetime
+}
+
+audit_logs [icon: file-search, color: slate] {
+  id UUID7 pk
+  actor_user_id UUID nullable fk
+  actor_type string
+  action string
+  resource_type string
+  resource_id string nullable
+  request_id string nullable
+  ip_address string nullable
+  user_agent string nullable
+  metadata json nullable
+  created_at datetime
+}
+
+outbox_events [icon: inbox, color: slate] {
+  id UUID7 pk
+  aggregate_type string
+  aggregate_id string
+  event_type string
+  payload json
+  status string "pending|processing|processed|failed|cancelled"
+  attempts int ">= 0"
+  available_at datetime
+  processed_at datetime nullable
+  last_error string nullable
+  created_at datetime
+}
+
+db_integrity_rules [icon: shield-check, color: red] {
+  one_default_address_per_user partial_unique_index
+  category_cycle_prevention trigger
+  numeric_money_stock_quantity_checks postgres_check_constraints
+  status_value_checks postgres_check_constraints
+  currency_format_checks postgres_check_constraints
+}
+
+users.id < auth_sessions.user_id
+users.id < auth_accounts_better.user_id
+users.id < auth_two_factors.user_id
+users.id < addresses.user_id
+users.id < user_roles.user_id
+users.id < user_roles.assigned_by
+roles.id < user_roles.role_id
+roles.id < role_permissions.role_id
+permissions.id < role_permissions.permission_id
+
+categories.id < categories.parent_category_id
+users.id < categories.created_by
+users.id < products.created_by
+products.id < product_categories.product_id
+categories.id < product_categories.category_id
+products.id < product_images.product_id
+
+users.id - carts.user_id
+carts.id < cart_items.cart_id
+products.id < cart_items.product_id
+
+users.id < orders.user_id
+orders.id - order_addresses.order_id
+orders.id < order_items.order_id
+products.id < order_items.product_id
+orders.id < order_status_history.order_id
+users.id < order_status_history.changed_by
+
+orders.id - payments.order_id
+payments.id < payment_webhook_events.payment_id
+payments.id < refunds.payment_id
+users.id < refunds.initiated_by
+
+users.id < notifications.user_id
+notifications.id < notification_deliveries.notification_id
+users.id < audit_logs.actor_user_id

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+.next/
+coverage/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Generated Prisma Client
+backend/src/generated/prisma/
+
+# Logs
+*.log
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

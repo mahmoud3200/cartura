@@ -1,0 +1,3 @@
+skills:
+  better-auth:
+    allow_implicit_invocation: true # Set to false if you only want it to trigger when you type $better-auth

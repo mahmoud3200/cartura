@@ -1,0 +1,12 @@
+{
+  "name": "cartura",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter @cartura/contracts --filter @cartura/backend dev",
+    "dev:backend": "pnpm --filter @cartura/backend dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}
