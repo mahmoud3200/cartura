@@ -1,6 +1,8 @@
+import type { Cart } from "@cartura/contracts/cart";
+
 import type { CartItemWithProduct, CartWithItems } from "./cart.types.js";
 
-export function mapCart(cart: CartWithItems) {
+export function mapCart(cart: CartWithItems): Cart {
   const items = cart.items.map(mapCartItem);
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
@@ -35,7 +37,7 @@ function mapCartItem(item: CartItemWithProduct) {
       slug: item.product.slug,
       sku: item.product.sku,
       stockQuantity: item.product.stockQuantity,
-      isActive: item.product.isActive,
+      isDeleted: item.product.isDeleted,
       image: primaryImage
         ? {
             id: primaryImage.id,

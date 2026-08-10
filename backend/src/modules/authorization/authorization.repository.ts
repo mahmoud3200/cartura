@@ -1,4 +1,20 @@
+import type { ListRolesQuery } from "@cartura/contracts/authorization";
+import type { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
+import { auditLogsRepository } from "../audit-logs/audit-logs.repository.js";
+import type { RecordAuditLogInput } from "../audit-logs/audit-logs.types.js";
+import {
+  createPaginatedResult,
+  getPaginationParams,
+} from "../../shared/pagination/pagination.js";
+
+const roleWithPermissionsInclude = {
+  rolePermissions: {
+    include: {
+      permission: true,
+    },
+  },
+} satisfies Prisma.RoleInclude;
 
 export class AuthorizationRepository {
   findPermissions() {
@@ -7,25 +23,49 @@ export class AuthorizationRepository {
     });
   }
 
-  findRoles() {
-    return prisma.role.findMany({
-      orderBy: { name: "asc" },
-      include: {
-        rolePermissions: {
-          include: {
-            permission: true,
-          },
-        },
-      },
-    });
+  async findRoles(query: ListRolesQuery) {
+    const where = buildRoleWhere(query);
+    const { skip, take } = getPaginationParams(query);
+
+    const [items, total] = await Promise.all([
+      prisma.role.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { name: "asc" },
+        include: roleWithPermissionsInclude,
+      }),
+      prisma.role.count({ where }),
+    ]);
+
+    return createPaginatedResult(items, total, query);
   }
 
   findRoleById(roleId: string) {
     return prisma.role.findUnique({
       where: { id: roleId },
-      include: {
-        rolePermissions: true,
+      include: roleWithPermissionsInclude,
+    });
+  }
+
+  findRoleByName(name: string) {
+    return prisma.role.findFirst({
+      where: { name: { equals: name, mode: "insensitive" } },
+    });
+  }
+
+  findAssignableUserRoles() {
+    return prisma.role.findMany({
+      where: {
+        name: { not: "super_admin" },
       },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isSystemRole: true,
+      },
+      orderBy: { name: "asc" },
     });
   }
 
@@ -56,7 +96,7 @@ export class AuthorizationRepository {
     name: string;
     description?: string | undefined;
     permissionIds: string[];
-  }) {
+  }, audit?: RecordAuditLogInput) {
     const roleData = {
       name: input.name,
       description: input.description ?? null,
@@ -68,16 +108,29 @@ export class AuthorizationRepository {
       },
     };
 
-    return prisma.role.create({
-      data: roleData,
+    return prisma.$transaction(async (tx) => {
+      const role = await tx.role.create({
+        data: roleData,
+        include: roleWithPermissionsInclude,
+      });
+
+      if (audit) {
+        await auditLogsRepository.create({
+          ...audit,
+          resourceId: role.id,
+        }, tx);
+      }
+
+      return role;
     });
   }
 
   updateCustomRole(input: {
     roleId: string;
     name?: string | undefined;
-    description?: string | undefined;
-  }) {
+    description?: string | null | undefined;
+    permissionIds?: string[] | undefined;
+  }, audit?: RecordAuditLogInput) {
     const data: { name?: string; description?: string | null } = {};
 
     if (input.name !== undefined) {
@@ -88,67 +141,173 @@ export class AuthorizationRepository {
       data.description = input.description;
     }
 
-    return prisma.role.update({
-      where: { id: input.roleId },
-      data,
+    return prisma.$transaction(async (tx) => {
+      await tx.role.update({
+        where: { id: input.roleId },
+        data,
+      });
+
+      if (input.permissionIds !== undefined) {
+        await tx.rolePermission.deleteMany({
+          where: { roleId: input.roleId },
+        });
+        if (input.permissionIds.length > 0) {
+          await tx.rolePermission.createMany({
+            data: input.permissionIds.map((permissionId) => ({
+              roleId: input.roleId,
+              permissionId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (audit) {
+        await auditLogsRepository.create(audit, tx);
+      }
+
+      return tx.role.findUniqueOrThrow({
+        where: { id: input.roleId },
+        include: roleWithPermissionsInclude,
+      });
     });
   }
 
   async replaceRolePermissions(input: {
     roleId: string;
     permissionIds: string[];
-  }): Promise<void> {
-    await prisma.$transaction([
-      prisma.rolePermission.deleteMany({
+  }, audit?: RecordAuditLogInput): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      const previousPermissions = await tx.rolePermission.findMany({
         where: { roleId: input.roleId },
-      }),
-      prisma.rolePermission.createMany({
+        select: { permissionId: true },
+        orderBy: { permissionId: "asc" },
+      });
+
+      await tx.rolePermission.deleteMany({
+        where: { roleId: input.roleId },
+      });
+
+      await tx.rolePermission.createMany({
         data: input.permissionIds.map((permissionId) => ({
           roleId: input.roleId,
           permissionId,
         })),
         skipDuplicates: true,
-      }),
-    ]);
-  }
+      });
 
-  deleteRole(roleId: string) {
-    return prisma.role.delete({
-      where: { id: roleId },
+      if (audit) {
+        await auditLogsRepository.create({
+          ...audit,
+          metadata: {
+            previous: {
+              permissionIds: previousPermissions.map((permission) =>
+                permission.permissionId
+              ),
+            },
+            next: {
+              permissionIds: input.permissionIds,
+            },
+          },
+        }, tx);
+      }
     });
   }
 
-  assignRole(input: {
-    userId: string;
-    roleId: string;
-    assignedBy?: string | undefined;
-  }) {
-    return prisma.userRole.upsert({
-      where: {
-        userId_roleId: {
-          userId: input.userId,
-          roleId: input.roleId,
+  deleteRole(
+    roleId: string,
+    customerRoleId: string,
+    audit?: RecordAuditLogInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      await tx.userRole.updateMany({
+        where: { roleId },
+        data: {
+          roleId: customerRoleId,
+          assignedBy: null,
+          assignedAt: new Date(),
+        },
+      });
+
+      const role = await tx.role.delete({
+        where: { id: roleId },
+      });
+
+      if (audit) {
+        await auditLogsRepository.create(audit, tx);
+      }
+
+      return role;
+    });
+  }
+
+  findUserRole(userId: string) {
+    return prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        assignedRole: {
+          include: { role: true },
         },
       },
-      update: {},
-      create: {
-        userId: input.userId,
-        roleId: input.roleId,
-        assignedBy: input.assignedBy ?? null,
-      },
     });
   }
 
-  removeRole(input: { userId: string; roleId: string }) {
-    return prisma.userRole.delete({
-      where: {
-        userId_roleId: {
+  replaceUserRole(
+    input: {
+      userId: string;
+      roleId: string;
+      assignedBy?: string | undefined;
+    },
+    audit?: RecordAuditLogInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const userRole = await tx.userRole.upsert({
+        where: { userId: input.userId },
+        update: {
+          roleId: input.roleId,
+          assignedBy: input.assignedBy ?? null,
+          assignedAt: new Date(),
+        },
+        create: {
           userId: input.userId,
           roleId: input.roleId,
+          assignedBy: input.assignedBy ?? null,
         },
-      },
+      });
+
+      if (audit) {
+        await auditLogsRepository.create(audit, tx);
+      }
+
+      return userRole;
     });
   }
+}
+
+export type RoleWithPermissions = Prisma.RoleGetPayload<{
+  include: typeof roleWithPermissionsInclude;
+}>;
+
+function buildRoleWhere(query: ListRolesQuery): Prisma.RoleWhereInput {
+  if (!query.q) {
+    return {};
+  }
+
+  return {
+    OR: [
+      { name: { contains: query.q, mode: "insensitive" } },
+      { description: { contains: query.q, mode: "insensitive" } },
+      {
+        rolePermissions: {
+          some: {
+            permission: {
+              name: { contains: query.q, mode: "insensitive" },
+            },
+          },
+        },
+      },
+    ],
+  };
 }
 
 export const authorizationRepository = new AuthorizationRepository();

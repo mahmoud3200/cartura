@@ -8,18 +8,34 @@ export class MailService {
       throw new Error("SMTP credentials are not configured");
     }
 
-    const result = await mailTransporter.sendMail({
-      from: env.MAIL_FROM,
-      to: input.to,
-      subject: input.subject,
-      text: input.text,
-      html: input.html,
-      replyTo: input.replyTo,
-    });
+    try {
+      const result = await mailTransporter.sendMail({
+        from: env.MAIL_FROM,
+        to: input.to,
+        subject: input.subject,
+        text: input.text,
+        html: input.html,
+        replyTo: input.replyTo,
+      });
 
-    return {
-      messageId: result.messageId,
-    };
+      console.info("Mail sent", {
+        to: input.to,
+        subject: input.subject,
+        messageId: result.messageId,
+      });
+
+      return {
+        messageId: result.messageId,
+      };
+    } catch (error) {
+      console.error("Mail send failed", {
+        to: input.to,
+        subject: input.subject,
+        error,
+      });
+
+      throw error;
+    }
   }
 
   async verifyConnection(): Promise<boolean> {

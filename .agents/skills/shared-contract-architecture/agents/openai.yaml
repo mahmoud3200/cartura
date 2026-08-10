@@ -1,0 +1,4 @@
+interface:
+  display_name: "Shared Contract Architecture"
+  short_description: "Keep API schemas shared across the stack"
+  default_prompt: "Use $shared-contract-architecture to define and consume shared API schemas without duplicating transport contracts."

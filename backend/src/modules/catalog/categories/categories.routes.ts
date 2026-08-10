@@ -1,7 +1,7 @@
 import { Router } from "express";
 
-import { requireAuthentication } from "../../auth/index.js";
-import { requirePermissions } from "../../authorization/index.js";
+import { requireAuthentication } from "../../auth/auth.middleware.js";
+import { requirePermissions } from "../../authorization/authorization.middleware.js";
 import { categoriesController } from "./categories.controller.js";
 import { CATEGORY_ROUTE_PERMISSIONS } from "./categories.policy.js";
 
@@ -29,5 +29,5 @@ managementCategoriesRouter.delete(
   "/:categoryId",
   requireAuthentication,
   requirePermissions(CATEGORY_ROUTE_PERMISSIONS.delete),
-  categoriesController.deactivate,
+  categoriesController.softDelete,
 );

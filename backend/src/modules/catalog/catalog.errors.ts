@@ -1,14 +1,12 @@
+import { conflictError as sharedConflictError, httpError } from "../../shared/errors/index.js";
+
 export function catalogHttpError(
   statusCode: number,
   code: string,
   message: string,
   details?: unknown,
 ): Error {
-  return Object.assign(new Error(message), {
-    statusCode,
-    code,
-    details,
-  });
+  return httpError(statusCode, code, message, details);
 }
 
 export function notFoundError(resource: string): Error {
@@ -16,5 +14,5 @@ export function notFoundError(resource: string): Error {
 }
 
 export function conflictError(message: string): Error {
-  return catalogHttpError(409, "CATALOG_CONFLICT", message);
+  return sharedConflictError("CATALOG_CONFLICT", message);
 }

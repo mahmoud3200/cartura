@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { requireAuthentication } from "../auth/index.js";
+import { requireAuthentication } from "../auth/auth.middleware.js";
 import { cartController } from "./cart.controller.js";
 
 export const cartRouter = Router();

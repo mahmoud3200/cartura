@@ -8,7 +8,7 @@ datasource db {
 }
 
 model AuthSession {
-  id        String   @id
+  id        String   @id @default(uuid())
   expiresAt DateTime
   token     String   @unique
   createdAt DateTime @default(now())
@@ -24,7 +24,7 @@ model AuthSession {
 }
 
 model AuthAccountBetter {
-  id                    String    @id
+  id                    String    @id @default(uuid())
   accountId             String
   providerId            String
   userId                String    @db.Uuid
@@ -46,7 +46,7 @@ model AuthAccountBetter {
 }
 
 model AuthVerification {
-  id         String   @id
+  id         String   @id @default(uuid())
   identifier String
   value      String
   expiresAt  DateTime
@@ -58,7 +58,7 @@ model AuthVerification {
 }
 
 model AuthTwoFactor {
-  id          String  @id
+  id          String  @id @default(uuid())
   secret      String
   backupCodes String
   userId      String  @db.Uuid
@@ -70,32 +70,49 @@ model AuthTwoFactor {
   @@map("auth_two_factors")
 }
 
+model Jwks {
+  id         String    @id @default(uuid())
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+
+  @@map("jwks")
+}
+
 model User {
-  id               String   @id @default(uuid(7)) @db.Uuid
-  name             String
-  email            String   @unique
-  emailVerified    Boolean  @default(false) @map("email_verified")
-  image            String?
-  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
-  accountStatus    String   @default("active") @map("account_status")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  name                String
+  firstName           String    @map("first_name")
+  lastName            String    @map("last_name")
+  email               String    @unique
+  emailVerified       Boolean   @default(false) @map("email_verified")
+  image               String?
+  twoFactorEnabled    Boolean   @default(false) @map("two_factor_enabled")
+  accountStatus       String    @default("active") @map("account_status")
+  accountStatusReason String?   @map("account_status_reason")
+  suspendedUntil      DateTime? @map("suspended_until")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  sessions           AuthSession[]
-  accounts           AuthAccountBetter[]
-  twoFactors         AuthTwoFactor[]
-  addresses          Address[]
-  assignedRoles      UserRole[]           @relation("UserRoles")
-  roleAssignments    UserRole[]           @relation("AssignedRoles")
-  createdCategories  Category[]           @relation("CategoryCreator")
-  createdProducts    Product[]            @relation("ProductCreator")
-  cart               Cart?
-  orders             Order[]
-  orderStatusChanges OrderStatusHistory[] @relation("OrderStatusChanger")
-  initiatedRefunds   Refund[]             @relation("RefundInitiator")
-  notifications      Notification[]
-  auditLogs          AuditLog[]           @relation("AuditActor")
+  sessions            AuthSession[]
+  accounts            AuthAccountBetter[]
+  twoFactors          AuthTwoFactor[]
+  addresses           Address[]
+  assignedRole        UserRole?            @relation("UserRoles")
+  roleAssignments     UserRole[]           @relation("AssignedRoles")
+  createdCategories   Category[]           @relation("CategoryCreator")
+  createdProducts     Product[]            @relation("ProductCreator")
+  uploadedMediaAssets MediaAsset[]         @relation("MediaAssetUploader")
+  cart                Cart?
+  orders              Order[]
+  orderStatusChanges  OrderStatusHistory[] @relation("OrderStatusChanger")
+  initiatedRefunds    Refund[]             @relation("RefundInitiator")
+  reviewedRefunds     Refund[]             @relation("RefundReviewer")
+  notifications       Notification[]
+  auditLogs           AuditLog[]           @relation("AuditActor")
 
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -147,7 +164,7 @@ model Permission {
 }
 
 model UserRole {
-  userId     String   @map("user_id") @db.Uuid
+  userId     String   @id @map("user_id") @db.Uuid
   roleId     String   @map("role_id") @db.Uuid
   assignedBy String?  @map("assigned_by") @db.Uuid
   assignedAt DateTime @default(now()) @map("assigned_at")
@@ -156,7 +173,6 @@ model UserRole {
   role     Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
   assigner User? @relation("AssignedRoles", fields: [assignedBy], references: [id], onDelete: SetNull)
 
-  @@id([userId, roleId])
   @@index([roleId])
   @@map("user_roles")
 }
@@ -180,31 +196,34 @@ model Category {
   slug             String   @unique
   description      String?
   imageUrl         String?  @map("image_url")
-  isActive         Boolean  @default(true) @map("is_active")
+  imageAssetId     String?  @unique @map("image_asset_id") @db.Uuid
+  isDeleted        Boolean  @default(false) @map("is_deleted")
   createdBy        String?  @map("created_by") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  parent   Category?         @relation("CategoryTree", fields: [parentCategoryId], references: [id], onDelete: SetNull)
-  children Category[]        @relation("CategoryTree")
-  creator  User?             @relation("CategoryCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  products ProductCategory[]
+  parent     Category?         @relation("CategoryTree", fields: [parentCategoryId], references: [id], onDelete: SetNull)
+  children   Category[]        @relation("CategoryTree")
+  creator    User?             @relation("CategoryCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  imageAsset MediaAsset?       @relation("CategoryImageAsset", fields: [imageAssetId], references: [id], onDelete: SetNull)
+  products   ProductCategory[]
 
   @@index([parentCategoryId])
   @@index([createdBy])
-  @@index([isActive, parentCategoryId])
+  @@index([isDeleted, parentCategoryId])
+  @@index([imageAssetId])
   @@map("categories")
 }
 
 model Product {
   id            String   @id @default(uuid(7)) @db.Uuid
   name          String
-  slug          String   @unique
+  slug          String
   description   String?
-  sku           String   @unique
+  sku           String
   price         Decimal  @db.Decimal(12, 2)
   stockQuantity Int      @default(0) @map("stock_quantity")
-  isActive      Boolean  @default(true) @map("is_active")
+  isDeleted     Boolean  @default(false) @map("is_deleted")
   createdBy     String?  @map("created_by") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
@@ -216,7 +235,9 @@ model Product {
   orderItems OrderItem[]
 
   @@index([createdBy])
-  @@index([isActive, createdAt])
+  @@index([isDeleted, createdAt])
+  @@index([slug, isDeleted])
+  @@index([sku, isDeleted])
   @@map("products")
 }
 
@@ -235,17 +256,53 @@ model ProductCategory {
 model ProductImage {
   id           String   @id @default(uuid(7)) @db.Uuid
   productId    String   @map("product_id") @db.Uuid
+  mediaAssetId String?  @unique @map("media_asset_id") @db.Uuid
   imageUrl     String   @map("image_url")
   altText      String?  @map("alt_text")
   displayOrder Int      @default(0) @map("display_order")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset? @relation("ProductImageMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([productId, displayOrder])
+  @@index([mediaAssetId])
   @@map("product_images")
+}
+
+model MediaAsset {
+  id                   String    @id @default(uuid(7)) @db.Uuid
+  provider             String    @default("cloudinary")
+  publicId             String    @unique @map("public_id")
+  secureUrl            String    @map("secure_url")
+  canonicalUrl         String    @map("canonical_url")
+  usage                String
+  status               String    @default("pending")
+  mimeType             String    @map("mime_type")
+  format               String
+  bytes                Int
+  width                Int
+  height               Int
+  editSpec             Json?     @map("edit_spec")
+  variants             Json?
+  uploadedBy           String?   @map("uploaded_by") @db.Uuid
+  attachedResourceType String?   @map("attached_resource_type")
+  attachedResourceId   String?   @map("attached_resource_id") @db.Uuid
+  attachedAt           DateTime? @map("attached_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  uploader     User?         @relation("MediaAssetUploader", fields: [uploadedBy], references: [id], onDelete: SetNull)
+  category     Category?     @relation("CategoryImageAsset")
+  productImage ProductImage? @relation("ProductImageMediaAsset")
+
+  @@index([uploadedBy])
+  @@index([status, createdAt])
+  @@index([usage, status])
+  @@index([attachedResourceType, attachedResourceId])
+  @@map("media_assets")
 }
 
 model Cart {
@@ -298,6 +355,7 @@ model Order {
   payment       Payment?
 
   @@index([userId])
+  @@index([createdAt])
   @@index([status, createdAt])
   @@map("orders")
 }
@@ -373,6 +431,7 @@ model Payment {
   refunds       Refund[]
 
   @@index([status])
+  @@index([status, paidAt])
   @@map("payments")
 }
 
@@ -392,46 +451,63 @@ model PaymentWebhookEvent {
   payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@unique([provider, providerEventId])
+  @@index([receivedAt])
+  @@index([status, receivedAt])
   @@map("payment_webhook_events")
 }
 
 model Refund {
-  id               String    @id @default(uuid(7)) @db.Uuid
-  paymentId        String    @map("payment_id") @db.Uuid
-  initiatedBy      String?   @map("initiated_by") @db.Uuid
-  providerRefundId String?   @map("provider_refund_id")
-  amount           Decimal   @db.Decimal(12, 2)
-  currency         String
-  status           String
-  reason           String?
-  failureReason    String?   @map("failure_reason")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  completedAt      DateTime? @map("completed_at")
-  failedAt         DateTime? @map("failed_at")
+  id                String    @id @default(uuid(7)) @db.Uuid
+  paymentId         String    @map("payment_id") @db.Uuid
+  initiatedBy       String?   @map("initiated_by") @db.Uuid
+  reviewedBy        String?   @map("reviewed_by") @db.Uuid
+  providerRefundId  String?   @map("provider_refund_id")
+  amount            Decimal   @db.Decimal(12, 2)
+  currency          String
+  status            String
+  reason            String?
+  reasonCode        String?   @map("reason_code")
+  reviewNote        String?   @map("review_note")
+  resolution        String?
+  refundMethod      String    @map("refund_method")
+  failureReason     String?   @map("failure_reason")
+  pickupScheduledAt DateTime? @map("pickup_scheduled_at")
+  itemReceivedAt    DateTime? @map("item_received_at")
+  reviewedAt        DateTime? @map("reviewed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  completedAt       DateTime? @map("completed_at")
+  failedAt          DateTime? @map("failed_at")
 
   payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   initiator User?   @relation("RefundInitiator", fields: [initiatedBy], references: [id], onDelete: SetNull)
+  reviewer  User?   @relation("RefundReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
   @@index([paymentId])
+  @@index([createdAt])
   @@index([status])
+  @@index([status, completedAt])
+  @@index([reviewedBy])
   @@map("refunds")
 }
 
 model Notification {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  type      String
-  title     String
-  body      String
-  data      Json?
-  readAt    DateTime? @map("read_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id            String    @id @default(uuid(7)) @db.Uuid
+  sourceEventId String?   @unique @map("source_event_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  type          String
+  title         String
+  body          String
+  data          Json?
+  readAt        DateTime? @map("read_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
   user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveries NotificationDelivery[]
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([userId, readAt, createdAt])
   @@map("notifications")
 }
 
@@ -472,6 +548,10 @@ model AuditLog {
   actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([actorUserId])
+  @@index([createdAt])
+  @@index([resourceType, resourceId])
+  @@index([action])
+  @@index([requestId])
   @@map("audit_logs")
 }
 
@@ -487,6 +567,7 @@ model OutboxEvent {
   processedAt   DateTime? @map("processed_at")
   lastError     String?   @map("last_error")
   createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@index([status, availableAt])
   @@map("outbox_events")

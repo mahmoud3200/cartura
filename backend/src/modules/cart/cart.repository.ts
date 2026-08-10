@@ -44,7 +44,7 @@ export class CartRepository {
       where: { id: productId },
       select: {
         id: true,
-        isActive: true,
+        isDeleted: true,
         stockQuantity: true,
       },
     });

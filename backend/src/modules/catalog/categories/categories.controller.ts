@@ -1,7 +1,12 @@
 import type { RequestHandler } from "express";
-import { z } from "zod";
 
-import type { AuthenticatedRequest } from "../../auth/index.js";
+import { parseInput } from "../../../shared/validation/parse-input.js";
+import {
+  getOptionalAuthenticatedUserId,
+  getPathParam,
+} from "../../../shared/utils/request.utils.js";
+import { getAuditContext } from "../../audit-logs/audit-context.js";
+import { mapPaginatedResult } from "../../../shared/pagination/pagination.js";
 import { mapCategory } from "./categories.mapper.js";
 import {
   createCategoryRequestSchema,
@@ -16,9 +21,7 @@ export class CategoriesController {
       const query = parseInput(listCategoriesQuerySchema, req.query);
       const categories = await categoriesService.list(query);
 
-      res.status(200).json({
-        data: categories.map(mapCategory),
-      });
+      res.status(200).json(mapPaginatedResult(categories, mapCategory));
     } catch (error) {
       next(error);
     }
@@ -41,7 +44,8 @@ export class CategoriesController {
       const body = parseInput(createCategoryRequestSchema, req.body);
       const category = await categoriesService.create(
         body,
-        getPrincipalUserId(req),
+        getOptionalAuthenticatedUserId(req),
+        getAuditContext(req),
       );
 
       res.status(201).json({ data: mapCategory(category) });
@@ -56,6 +60,7 @@ export class CategoriesController {
       const category = await categoriesService.update(
         getPathParam(req.params.categoryId),
         body,
+        getAuditContext(req),
       );
 
       res.status(200).json({ data: mapCategory(category) });
@@ -64,42 +69,18 @@ export class CategoriesController {
     }
   };
 
-  deactivate: RequestHandler = async (req, res, next) => {
+  softDelete: RequestHandler = async (req, res, next) => {
     try {
-      const category = await categoriesService.deactivate(
+      await categoriesService.softDelete(
         getPathParam(req.params.categoryId),
+        getAuditContext(req),
       );
 
-      res.status(200).json({ data: mapCategory(category) });
+      res.status(204).send();
     } catch (error) {
       next(error);
     }
   };
-}
-
-function parseInput<TSchema extends z.ZodType>(
-  schema: TSchema,
-  input: unknown,
-): z.infer<TSchema> {
-  const result = schema.safeParse(input);
-
-  if (!result.success) {
-    throw Object.assign(new Error("Request validation failed"), {
-      statusCode: 400,
-      code: "VALIDATION_ERROR",
-      details: z.treeifyError(result.error),
-    });
-  }
-
-  return result.data;
-}
-
-function getPathParam(value: string | string[] | undefined): string {
-  return typeof value === "string" ? value : "";
-}
-
-function getPrincipalUserId(req: Parameters<RequestHandler>[0]): string | undefined {
-  return (req as AuthenticatedRequest).principal?.userId;
 }
 
 export const categoriesController = new CategoriesController();

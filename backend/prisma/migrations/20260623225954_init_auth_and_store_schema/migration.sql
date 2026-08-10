@@ -96,7 +96,7 @@ CREATE TABLE "user_roles" (
     "assigned_by" UUID,
     "assigned_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "user_roles_pkey" PRIMARY KEY ("user_id","role_id")
+    CONSTRAINT "user_roles_pkey" PRIMARY KEY ("user_id")
 );
 
 -- CreateTable

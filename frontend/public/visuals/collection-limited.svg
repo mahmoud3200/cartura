@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" role="img" aria-label="Limited runs collection">
+  <rect width="900" height="700" fill="#191f22"/>
+  <rect x="90" y="100" width="280" height="430" rx="24" fill="#e8ebe2"/>
+  <rect x="130" y="154" width="200" height="72" rx="9" fill="#191f22" opacity="0.84"/>
+  <rect x="130" y="270" width="120" height="172" rx="18" fill="#aab5a8"/>
+  <rect x="440" y="164" width="340" height="300" rx="26" fill="#f6f5ef" opacity="0.92"/>
+  <circle cx="610" cy="314" r="82" fill="#aab5a8"/>
+  <path d="M98 572 C308 518 566 620 804 524" stroke="#f8f7f1" stroke-opacity="0.22" stroke-width="3" fill="none"/>
+</svg>

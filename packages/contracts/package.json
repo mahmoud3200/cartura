@@ -14,9 +14,21 @@
       "types": "./dist/auth/index.d.ts",
       "import": "./dist/auth/index.js"
     },
+    "./addresses": {
+      "types": "./dist/addresses/index.d.ts",
+      "import": "./dist/addresses/index.js"
+    },
+    "./analytics": {
+      "types": "./dist/analytics/index.d.ts",
+      "import": "./dist/analytics/index.js"
+    },
     "./authorization": {
       "types": "./dist/authorization/index.d.ts",
       "import": "./dist/authorization/index.js"
+    },
+    "./audit-logs": {
+      "types": "./dist/audit-logs/index.d.ts",
+      "import": "./dist/audit-logs/index.js"
     },
     "./catalog": {
       "types": "./dist/catalog/index.d.ts",
@@ -26,6 +38,10 @@
       "types": "./dist/cart/index.d.ts",
       "import": "./dist/cart/index.js"
     },
+    "./users": {
+      "types": "./dist/users/index.d.ts",
+      "import": "./dist/users/index.js"
+    },
     "./products": {
       "types": "./dist/products/index.d.ts",
       "import": "./dist/products/index.js"
@@ -33,6 +49,26 @@
     "./common": {
       "types": "./dist/common/index.d.ts",
       "import": "./dist/common/index.js"
+    },
+    "./media": {
+      "types": "./dist/media/index.d.ts",
+      "import": "./dist/media/index.js"
+    },
+    "./notifications": {
+      "types": "./dist/notifications/index.d.ts",
+      "import": "./dist/notifications/index.js"
+    },
+    "./orders": {
+      "types": "./dist/orders/index.d.ts",
+      "import": "./dist/orders/index.js"
+    },
+    "./payments": {
+      "types": "./dist/payments/index.d.ts",
+      "import": "./dist/payments/index.js"
+    },
+    "./refunds": {
+      "types": "./dist/refunds/index.d.ts",
+      "import": "./dist/refunds/index.js"
     }
   },
   "files": [

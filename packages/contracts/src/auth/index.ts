@@ -1,19 +1,62 @@
 import { z } from "zod";
+import { userAccountStatusSchema } from "../users/index.js";
 
 export const authUserSchema = z.object({
   id: z.string(),
   name: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
   email: z.email(),
   emailVerified: z.boolean(),
   image: z.string().nullable().optional(),
+  twoFactorEnabled: z.boolean().optional(),
+  accountStatus: userAccountStatusSchema.default("active"),
+  accountStatusReason: z.string().nullable().optional().default(null),
+  suspendedUntil: z
+    .union([z.iso.datetime(), z.date()])
+    .nullable()
+    .optional()
+    .default(null),
   createdAt: z.iso.datetime().or(z.date()),
   updatedAt: z.iso.datetime().or(z.date()),
 });
 
+export const restrictedAccountStatusSchema = z.enum([
+  "suspended",
+  "disabled",
+]);
+
+export const accountRestrictionSchema = z.object({
+  accountStatus: restrictedAccountStatusSchema,
+  statusReason: z.string().nullable(),
+  suspendedUntil: z.iso.datetime().nullable(),
+});
+
+export const updateProfileRequestSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(80),
+    lastName: z.string().trim().min(1).max(80),
+  })
+  .transform((input) => ({
+    ...input,
+    name: `${input.firstName} ${input.lastName}`,
+  }));
+
+export const updateProfileResponseSchema = z.object({
+  status: z.literal(true),
+});
+
 export const registerRequestSchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  firstName: z.string().trim().min(1).max(80),
+  lastName: z.string().trim().min(1).max(80),
   email: z.email().toLowerCase(),
   password: z.string().min(8).max(128),
+});
+
+export const signUpEmailRequestSchema = registerRequestSchema.extend({
+  image: z.string().optional(),
+  callbackURL: z.string().optional(),
+  rememberMe: z.boolean().optional(),
 });
 
 export const loginRequestSchema = z.object({
@@ -77,7 +120,14 @@ export const oauthProviderSchema = z.enum(["google"]);
 
 export const oauthAuthorizeRequestSchema = z.object({
   provider: oauthProviderSchema,
-  callbackURL: z.url().optional(),
+  callbackURL: z.url(),
+  errorCallbackURL: z.url().optional(),
+  newUserCallbackURL: z.url().optional(),
+});
+
+export const oauthAuthorizeResponseSchema = z.object({
+  url: z.url(),
+  redirect: z.boolean().optional(),
 });
 
 export const authMessageResponseSchema = z.object({
@@ -89,7 +139,11 @@ export const authMeResponseSchema = z.object({
 });
 
 export type AuthUser = z.infer<typeof authUserSchema>;
+export type AccountRestriction = z.infer<typeof accountRestrictionSchema>;
+export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
+export type UpdateProfileResponse = z.infer<typeof updateProfileResponseSchema>;
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
+export type SignUpEmailRequest = z.infer<typeof signUpEmailRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 export type LogoutRequest = z.infer<typeof logoutRequestSchema>;
@@ -111,5 +165,8 @@ export type DisableTwoFactorRequest = z.infer<
 >;
 export type OAuthProvider = z.infer<typeof oauthProviderSchema>;
 export type OAuthAuthorizeRequest = z.infer<typeof oauthAuthorizeRequestSchema>;
+export type OAuthAuthorizeResponse = z.infer<
+  typeof oauthAuthorizeResponseSchema
+>;
 export type AuthMessageResponse = z.infer<typeof authMessageResponseSchema>;
 export type AuthMeResponse = z.infer<typeof authMeResponseSchema>;

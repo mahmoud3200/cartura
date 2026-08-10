@@ -1,26 +1,29 @@
-import type { CategoryWithChildren } from "./categories.types.js";
+import type { Category } from "@cartura/contracts/catalog";
 
-export function mapCategory(category: CategoryWithChildren) {
+import { isCategoryApiVisible } from "./categories.policy.js";
+import type { CategoryWithLineage } from "./categories.types.js";
+
+export function mapCategory(category: CategoryWithLineage): Category {
+  if (!isCategoryApiVisible(category)) {
+    throw new Error("A hidden category cannot be mapped to an API response");
+  }
+
+  const parent = isCategoryApiVisible(category.parent)
+    ? category.parent
+    : null;
+
   return {
     id: category.id,
-    parentCategoryId: category.parentCategoryId,
+    parentCategoryId: parent?.id ?? null,
+    parentCategoryName: parent?.name ?? null,
+    parentCategory: category.parentCategory,
     name: category.name,
     slug: category.slug,
     description: category.description,
     imageUrl: category.imageUrl,
-    isActive: category.isActive,
+    imageAssetId: category.imageAssetId,
+    isDeleted: false,
     createdAt: category.createdAt.toISOString(),
     updatedAt: category.updatedAt.toISOString(),
-    children: category.children.map((child) => ({
-      id: child.id,
-      parentCategoryId: child.parentCategoryId,
-      name: child.name,
-      slug: child.slug,
-      description: child.description,
-      imageUrl: child.imageUrl,
-      isActive: child.isActive,
-      createdAt: child.createdAt.toISOString(),
-      updatedAt: child.updatedAt.toISOString(),
-    })),
   };
 }

@@ -5,6 +5,7 @@ import {
   managementCategoriesRouter,
 } from "./categories/index.js";
 import {
+  categoryProductsRouter,
   managementProductsRouter,
   productsRouter,
 } from "./products/index.js";
@@ -12,6 +13,7 @@ import {
 export const catalogRouter = Router();
 export const managementCatalogRouter = Router();
 
+catalogRouter.use("/categories/:categorySlug/products", categoryProductsRouter);
 catalogRouter.use("/categories", categoriesRouter);
 catalogRouter.use("/products", productsRouter);
 

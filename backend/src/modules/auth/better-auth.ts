@@ -5,18 +5,21 @@ import { bearer } from "better-auth/plugins/bearer";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { jwt } from "better-auth/plugins/jwt";
 
-import { env } from "../../config/env.js";
+import { env, frontendOrigins } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { mailService } from "../../infrastructure/mail/index.js";
 import { assignDefaultCustomerRole } from "../authorization/authorization.provisioning.js";
 
+import { createAuthenticationCodeEmail } from "./auth.email.js";
 import { getOtpEmailSubject } from "./auth.utils.js";
+import { getGoogleProfileNames } from "./google-profile.js";
 
 export const auth = betterAuth({
-  baseURL: env.BETTER_AUTH_URL,
+  // The public frontend origin proxies /api/v1/auth to this Express server.
+  baseURL: env.FRONTEND_URL,
   basePath: "/api/v1/auth",
   secret: env.BETTER_AUTH_SECRET,
-  trustedOrigins: [env.FRONTEND_URL],
+  trustedOrigins: frontendOrigins,
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
@@ -28,6 +31,26 @@ export const auth = betterAuth({
         required: false,
         defaultValue: "active",
         input: false,
+      },
+      accountStatusReason: {
+        type: "string",
+        required: false,
+        input: false,
+      },
+      suspendedUntil: {
+        type: "date",
+        required: false,
+        input: false,
+      },
+      firstName: {
+        type: "string",
+        required: true,
+        input: true,
+      },
+      lastName: {
+        type: "string",
+        required: true,
+        input: true,
       },
     },
   },
@@ -71,6 +94,7 @@ export const auth = betterAuth({
           google: {
             clientId: env.GOOGLE_CLIENT_ID,
             clientSecret: env.GOOGLE_CLIENT_SECRET,
+            mapProfileToUser: getGoogleProfileNames,
           },
         }
       : {}),
@@ -84,11 +108,16 @@ export const auth = betterAuth({
       sendVerificationOnSignUp: true,
       overrideDefaultEmailVerification: true,
       async sendVerificationOTP({ email, otp, type }) {
+        const subject = getOtpEmailSubject(type);
+
         await mailService.sendMail({
           to: email,
-          subject: getOtpEmailSubject(type),
-          text: `Your Cartura code is ${otp}. It expires in 10 minutes.`,
-          html: `<p>Your Cartura code is <strong>${otp}</strong>.</p><p>It expires in 10 minutes.</p>`,
+          ...createAuthenticationCodeEmail({
+            subject,
+            code: otp,
+            purpose: getOtpPurpose(type),
+            expiresInMinutes: 10,
+          }),
         });
       },
     }),
@@ -113,9 +142,12 @@ export const auth = betterAuth({
         async sendOTP({ user, otp }) {
           await mailService.sendMail({
             to: user.email,
-            subject: "Verify your Cartura sign-in",
-            text: `Your Cartura sign-in code is ${otp}. It expires in 10 minutes.`,
-            html: `<p>Your Cartura sign-in code is <strong>${otp}</strong>.</p><p>It expires in 10 minutes.</p>`,
+            ...createAuthenticationCodeEmail({
+              subject: "Verify your Cartura sign-in",
+              code: otp,
+              purpose: "Use this code to finish signing in.",
+              expiresInMinutes: 10,
+            }),
           });
         },
       },
@@ -123,3 +155,18 @@ export const auth = betterAuth({
     openAPI(),
   ],
 });
+
+function getOtpPurpose(
+  type: "sign-in" | "email-verification" | "forget-password" | "change-email",
+) {
+  switch (type) {
+    case "email-verification":
+      return "Use this code to verify your email address.";
+    case "forget-password":
+      return "Use this code to reset your password.";
+    case "change-email":
+      return "Use this code to confirm your new email address.";
+    default:
+      return "Use this code to finish signing in.";
+  }
+}

@@ -74,7 +74,7 @@ export class CartService {
   ): Promise<void> {
     const product = await this.repository.findProductById(productId);
 
-    if (!product || !product.isActive) {
+    if (!product || product.isDeleted) {
       throw productUnavailableError();
     }
 

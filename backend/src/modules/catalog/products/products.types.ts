@@ -5,16 +5,12 @@ export type ProductWithRelations = Prisma.ProductGetPayload<{
     images: true;
     categories: {
       include: {
-        category: true;
+        category: {
+          include: {
+            parent: true;
+          };
+        };
       };
     };
   };
 }>;
-
-export type PaginatedResult<TItem> = {
-  items: TItem[];
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-};

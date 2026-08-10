@@ -16,12 +16,7 @@ export async function assignDefaultCustomerRole(userId: string): Promise<void> {
   }
 
   await prisma.userRole.upsert({
-    where: {
-      userId_roleId: {
-        userId,
-        roleId: customerRole.id,
-      },
-    },
+    where: { userId },
     update: {},
     create: {
       userId,

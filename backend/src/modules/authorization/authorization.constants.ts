@@ -3,7 +3,7 @@
 export const PERMISSIONS = {
   USERS_READ: "users.read",
   USERS_UPDATE_STATUS: "users.status.update",
-  USERS_ASSIGN_ROLES: "users.roles.assign",
+  USERS_UPDATE_ROLE: "users.role.update",
 
   ROLES_READ: "roles.read",
   ROLES_CREATE: "roles.create",
@@ -25,7 +25,12 @@ export const PERMISSIONS = {
 
   REFUNDS_READ: "refunds.read",
   REFUNDS_CREATE: "refunds.create",
+  REFUNDS_EXECUTE: "refunds.execute",
 
+  PAYMENT_WEBHOOKS_READ: "payments.webhooks.read",
+  PAYMENT_WEBHOOKS_REPROCESS: "payments.webhooks.reprocess",
+
+  ANALYTICS_READ: "analytics.read",
   AUDIT_LOGS_READ: "audit_logs.read",
 } as const;
 

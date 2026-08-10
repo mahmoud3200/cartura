@@ -1,44 +1,67 @@
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../../infrastructure/database/prisma.js";
+import {
+  createPaginatedResult,
+  getPaginationParams,
+} from "../../../shared/pagination/pagination.js";
 import type {
   CreateProductRequest,
   ListProductsQuery,
   ProductImageInput,
   UpdateProductRequest,
 } from "@cartura/contracts/catalog";
+import { auditLogsRepository } from "../../audit-logs/audit-logs.repository.js";
+import type { RecordAuditLogInput } from "../../audit-logs/audit-logs.types.js";
+import { mediaRepository } from "../../media/media.repository.js";
 
 const productInclude = {
   images: true,
   categories: {
+    where: {
+      category: {
+        isDeleted: false,
+        imageAssetId: { not: null },
+        imageUrl: { not: null },
+      },
+    },
     include: {
-      category: true,
+      category: {
+        include: {
+          parent: true,
+        },
+      },
     },
   },
 } satisfies Prisma.ProductInclude;
 
 export class ProductsRepository {
-  async list(query: ListProductsQuery) {
-    const where = buildProductWhere(query);
-    const skip = (query.page - 1) * query.pageSize;
+  list(query: ListProductsQuery) {
+    return this.listMatching(query);
+  }
 
-    const [items, total] = await prisma.$transaction([
+  listByCategory(categorySlug: string, query: ListProductsQuery) {
+    return this.listMatching(query, categorySlug);
+  }
+
+  private async listMatching(
+    query: ListProductsQuery,
+    categorySlug?: string,
+  ) {
+    const where = buildProductWhere(query, categorySlug);
+    const { skip, take } = getPaginationParams(query);
+
+    const [items, total] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
-        take: query.pageSize,
+        take,
         orderBy: [{ createdAt: "desc" }],
         include: productInclude,
       }),
       prisma.product.count({ where }),
     ]);
 
-    return {
-      items,
-      page: query.page,
-      pageSize: query.pageSize,
-      total,
-      totalPages: Math.ceil(total / query.pageSize),
-    };
+    return createPaginatedResult(items, total, query);
   }
 
   findById(productId: string) {
@@ -50,49 +73,73 @@ export class ProductsRepository {
 
   findBySlug(slug: string) {
     return prisma.product.findFirst({
-      where: { slug, isActive: true },
-      include: productInclude,
-    });
-  }
-
-  findBySlugAnyStatus(slug: string) {
-    return prisma.product.findUnique({
-      where: { slug },
+      where: { slug, isDeleted: false },
       include: productInclude,
     });
   }
 
   findBySku(sku: string) {
-    return prisma.product.findUnique({
-      where: { sku },
+    return prisma.product.findFirst({
+      where: { sku, isDeleted: false },
       include: productInclude,
     });
   }
 
-  create(input: CreateProductRequest, createdBy?: string) {
-    return prisma.product.create({
-      data: {
-        name: input.name,
-        slug: input.slug,
-        description: input.description ?? null,
-        sku: input.sku,
-        price: input.price,
-        stockQuantity: input.stockQuantity,
-        createdBy: createdBy ?? null,
-        categories: {
-          create: input.categoryIds.map((categoryId) => ({
-            categoryId,
-          })),
+  create(
+    input: CreateProductRequest,
+    createdBy?: string,
+    audit?: RecordAuditLogInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const imageAssets = await getMediaAssetMap(
+        tx,
+        input.images.map((image) => image.mediaAssetId),
+      );
+      const product = await tx.product.create({
+        data: {
+          name: input.name,
+          slug: input.slug,
+          description: input.description ?? null,
+          sku: input.sku,
+          price: input.price,
+          stockQuantity: input.stockQuantity,
+          createdBy: createdBy ?? null,
+          categories: {
+            create: input.categoryIds.map((categoryId) => ({
+              categoryId,
+            })),
+          },
+          images: {
+            create: input.images.map((image) =>
+              mapImageInput(image, imageAssets),
+            ),
+          },
         },
-        images: {
-          create: input.images.map(mapImageInput),
-        },
-      },
-      include: productInclude,
+        include: productInclude,
+      });
+
+      await mediaRepository.markAttached(
+        tx,
+        input.images.map((image) => image.mediaAssetId),
+        { type: "product", id: product.id },
+      );
+
+      if (audit) {
+        await auditLogsRepository.create({
+          ...audit,
+          resourceId: product.id,
+        }, tx);
+      }
+
+      return product;
     });
   }
 
-  update(productId: string, input: UpdateProductRequest) {
+  update(
+    productId: string,
+    input: UpdateProductRequest,
+    audit?: RecordAuditLogInput,
+  ) {
     return prisma.$transaction(async (tx) => {
       const data: Prisma.ProductUpdateInput = {};
 
@@ -104,7 +151,7 @@ export class ProductsRepository {
       if (input.stockQuantity !== undefined) {
         data.stockQuantity = input.stockQuantity;
       }
-      if (input.isActive !== undefined) data.isActive = input.isActive;
+      if (input.isDeleted !== undefined) data.isDeleted = input.isDeleted;
 
       await tx.product.update({
         where: { id: productId },
@@ -125,44 +172,82 @@ export class ProductsRepository {
       }
 
       if (input.images !== undefined) {
+        const imageAssets = await getMediaAssetMap(
+          tx,
+          input.images.map((image) => image.mediaAssetId),
+        );
         await tx.productImage.deleteMany({ where: { productId } });
         if (input.images.length > 0) {
           await tx.productImage.createMany({
             data: input.images.map((image) => ({
               productId,
-              ...mapImageInput(image),
+              ...mapImageInput(image, imageAssets),
             })),
           });
+          await mediaRepository.markAttached(
+            tx,
+            input.images.map((image) => image.mediaAssetId),
+            { type: "product", id: productId },
+          );
         }
       }
 
-      return tx.product.findUniqueOrThrow({
+      const product = await tx.product.findUniqueOrThrow({
         where: { id: productId },
         include: productInclude,
       });
+
+      if (audit) {
+        await auditLogsRepository.create(audit, tx);
+      }
+
+      return product;
     });
   }
 
-  updateInventory(productId: string, stockQuantity: number) {
-    return prisma.product.update({
-      where: { id: productId },
-      data: { stockQuantity },
-      include: productInclude,
+  updateInventory(
+    productId: string,
+    stockQuantity: number,
+    audit?: RecordAuditLogInput,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id: productId },
+        data: { stockQuantity },
+        include: productInclude,
+      });
+
+      if (audit) {
+        await auditLogsRepository.create(audit, tx);
+      }
+
+      return product;
     });
   }
 
-  deactivate(productId: string) {
-    return prisma.product.update({
-      where: { id: productId },
-      data: { isActive: false },
-      include: productInclude,
+  softDelete(productId: string, audit?: RecordAuditLogInput) {
+    return prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id: productId },
+        data: { isDeleted: true },
+        include: productInclude,
+      });
+
+      if (audit) {
+        await auditLogsRepository.create(audit, tx);
+      }
+
+      return product;
     });
   }
 }
 
-function buildProductWhere(query: ListProductsQuery): Prisma.ProductWhereInput {
+export function buildProductWhere(
+  query: ListProductsQuery,
+  categorySlug?: string,
+): Prisma.ProductWhereInput {
   const where: Prisma.ProductWhereInput = {
-    isActive: true,
+    isDeleted: false,
   };
 
   if (query.q) {
@@ -170,15 +255,32 @@ function buildProductWhere(query: ListProductsQuery): Prisma.ProductWhereInput {
       { name: { contains: query.q, mode: "insensitive" } },
       { description: { contains: query.q, mode: "insensitive" } },
       { sku: { contains: query.q, mode: "insensitive" } },
+      {
+        categories: {
+          some: {
+            category: {
+              isDeleted: false,
+              imageAssetId: { not: null },
+              imageUrl: { not: null },
+              OR: [
+                { name: { contains: query.q, mode: "insensitive" } },
+                { slug: { contains: query.q, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
+      },
     ];
   }
 
-  if (query.categorySlug) {
+  if (categorySlug) {
     where.categories = {
       some: {
         category: {
-          slug: query.categorySlug,
-          isActive: true,
+          slug: categorySlug,
+          isDeleted: false,
+          imageAssetId: { not: null },
+          imageUrl: { not: null },
         },
       },
     };
@@ -205,9 +307,39 @@ function buildProductWhere(query: ListProductsQuery): Prisma.ProductWhereInput {
   return where;
 }
 
-function mapImageInput(image: ProductImageInput) {
+async function getMediaAssetMap(
+  tx: Prisma.TransactionClient,
+  mediaAssetIds: string[],
+) {
+  if (mediaAssetIds.length === 0) {
+    return new Map<string, { id: string; canonicalUrl: string }>();
+  }
+
+  const assets = await tx.mediaAsset.findMany({
+    where: { id: { in: mediaAssetIds } },
+    select: { id: true, canonicalUrl: true },
+  });
+
+  if (assets.length !== new Set(mediaAssetIds).size) {
+    throw new Error("One or more media assets were not found");
+  }
+
+  return new Map(assets.map((asset) => [asset.id, asset]));
+}
+
+function mapImageInput(
+  image: ProductImageInput,
+  imageAssets: Map<string, { id: string; canonicalUrl: string }>,
+) {
+  const imageAsset = imageAssets.get(image.mediaAssetId);
+
+  if (!imageAsset) {
+    throw new Error("Product image media asset was not resolved");
+  }
+
   return {
-    imageUrl: image.imageUrl,
+    mediaAssetId: image.mediaAssetId,
+    imageUrl: imageAsset.canonicalUrl,
     altText: image.altText ?? null,
     displayOrder: image.displayOrder,
   };

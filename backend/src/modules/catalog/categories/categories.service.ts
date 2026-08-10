@@ -4,7 +4,13 @@ import type {
   UpdateCategoryRequest,
 } from "@cartura/contracts/catalog";
 
-import { conflictError, notFoundError } from "../catalog.errors.js";
+import type { AuditContext } from "../../audit-logs/audit-logs.types.js";
+import {
+  catalogHttpError,
+  conflictError,
+  notFoundError,
+} from "../catalog.errors.js";
+import { mediaService } from "../../media/media.service.js";
 import {
   categoriesRepository,
   type CategoriesRepository,
@@ -29,18 +35,51 @@ export class CategoriesService {
     return category;
   }
 
-  async create(input: CreateCategoryRequest, createdBy?: string) {
+  async create(
+    input: CreateCategoryRequest,
+    createdBy?: string,
+    audit?: AuditContext,
+  ) {
     await this.assertSlugAvailable(input.slug);
 
     if (input.parentCategoryId) {
-      await this.assertExists(input.parentCategoryId);
+      await this.assertVisibleExists(input.parentCategoryId);
     }
 
-    return this.repository.create(input, createdBy);
+    const imageAssetId = input.imageAssetId;
+    this.assertHasCategoryImage(imageAssetId);
+    await mediaService.assertAttachableAssets(
+      [imageAssetId],
+      "category_banner",
+    );
+
+    return this.repository.create(
+      input,
+      createdBy,
+      audit
+        ? {
+            ...audit,
+            action: "category.create",
+            resourceType: "category",
+            metadata: {
+              parentCategoryId: input.parentCategoryId ?? null,
+              name: input.name,
+              slug: input.slug,
+              description: input.description ?? null,
+              imageAssetId: input.imageAssetId,
+              createdBy: createdBy ?? null,
+            },
+          }
+        : undefined,
+    );
   }
 
-  async update(categoryId: string, input: UpdateCategoryRequest) {
-    await this.assertExists(categoryId);
+  async update(
+    categoryId: string,
+    input: UpdateCategoryRequest,
+    audit?: AuditContext,
+  ) {
+    const category = await this.assertActiveExists(categoryId);
 
     if (input.slug !== undefined) {
       await this.assertSlugAvailable(input.slug, categoryId);
@@ -52,24 +91,115 @@ export class CategoriesService {
       }
 
       if (input.parentCategoryId !== null) {
-        await this.assertExists(input.parentCategoryId);
+        await this.assertVisibleExists(input.parentCategoryId);
       }
     }
 
-    return this.repository.update(categoryId, input);
+    let nextImageUrl = category.imageUrl;
+
+    if (input.imageAssetId !== undefined) {
+      const imageAssetId = input.imageAssetId;
+      this.assertHasCategoryImage(imageAssetId);
+      const imageAsset = (
+        await mediaService.assertAttachableAssets(
+          [imageAssetId],
+          "category_banner",
+          { type: "category", id: categoryId },
+        )
+      )[0]!;
+      nextImageUrl = imageAsset.canonicalUrl;
+    }
+
+    const nextImageAssetId =
+      input.imageAssetId === undefined
+        ? category.imageAssetId
+        : input.imageAssetId;
+    this.assertHasCategoryImage(nextImageAssetId);
+
+    return this.repository.update(
+      categoryId,
+      input,
+      audit
+        ? {
+            ...audit,
+            action: "category.update",
+            resourceType: "category",
+            resourceId: categoryId,
+            metadata: {
+              changedFields: Object.keys(input),
+              previous: {
+                parentCategoryId: category.parentCategoryId,
+                name: category.name,
+                slug: category.slug,
+                description: category.description,
+                imageUrl: category.imageUrl,
+                imageAssetId: category.imageAssetId,
+              },
+              next: {
+                parentCategoryId:
+                  input.parentCategoryId === undefined
+                    ? category.parentCategoryId
+                    : input.parentCategoryId,
+                name: input.name ?? category.name,
+                slug: input.slug ?? category.slug,
+                description:
+                  input.description === undefined
+                    ? category.description
+                    : input.description,
+                imageUrl: nextImageUrl,
+                imageAssetId:
+                  input.imageAssetId === undefined
+                    ? category.imageAssetId
+                    : input.imageAssetId,
+              },
+            },
+          }
+        : undefined,
+    );
   }
 
-  async deactivate(categoryId: string) {
-    await this.assertExists(categoryId);
-    return this.repository.deactivate(categoryId);
+  async softDelete(categoryId: string, audit?: AuditContext) {
+    const category = await this.assertActiveExists(categoryId);
+
+    await this.repository.softDelete(
+      categoryId,
+      audit
+        ? {
+            ...audit,
+            action: "category.soft_delete",
+            resourceType: "category",
+            resourceId: categoryId,
+            metadata: {
+              previous: {
+                isDeleted: category.isDeleted,
+              },
+              next: {
+                isDeleted: true,
+              },
+            },
+          }
+        : undefined,
+    );
   }
 
-  private async assertExists(categoryId: string): Promise<void> {
-    const category = await this.repository.findById(categoryId);
+  private async assertActiveExists(categoryId: string) {
+    const category = await this.repository.findActiveById(categoryId);
 
     if (!category) {
       throw notFoundError("Category");
     }
+
+    return category;
+  }
+
+  private async assertVisibleExists(categoryId: string) {
+    const category = await this.repository.findVisibleById(categoryId);
+
+    if (!category) {
+      throw notFoundError("Category");
+    }
+
+    return category;
   }
 
   private async assertSlugAvailable(
@@ -80,6 +210,18 @@ export class CategoriesService {
 
     if (category && category.id !== currentCategoryId) {
       throw conflictError("Category slug is already in use");
+    }
+  }
+
+  private assertHasCategoryImage(
+    imageAssetId: string | null | undefined,
+  ): asserts imageAssetId is string {
+    if (!imageAssetId) {
+      throw catalogHttpError(
+        400,
+        "CATEGORY_IMAGE_REQUIRED",
+        "A category must have an image",
+      );
     }
   }
 }

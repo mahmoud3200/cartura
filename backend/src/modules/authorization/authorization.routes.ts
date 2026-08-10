@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { requireAuthentication } from "../auth/index.js";
+import { requireAuthentication } from "../auth/auth.middleware.js";
 import { PERMISSIONS } from "./authorization.constants.js";
 import { authorizationController } from "./authorization.controller.js";
 import { requirePermissions } from "./authorization.middleware.js";
@@ -8,6 +8,11 @@ import { requirePermissions } from "./authorization.middleware.js";
 export const authorizationRouter = Router();
 
 authorizationRouter.use(requireAuthentication);
+
+authorizationRouter.get(
+  "/me/permissions",
+  authorizationController.listCurrentUserPermissions,
+);
 
 authorizationRouter.get(
   "/permissions",
@@ -19,6 +24,18 @@ authorizationRouter.get(
   "/roles",
   requirePermissions(PERMISSIONS.ROLES_READ),
   authorizationController.listRoles,
+);
+
+authorizationRouter.get(
+  "/users/role-options",
+  requirePermissions(PERMISSIONS.USERS_UPDATE_ROLE),
+  authorizationController.listAssignableUserRoles,
+);
+
+authorizationRouter.get(
+  "/roles/:roleId",
+  requirePermissions(PERMISSIONS.ROLES_READ),
+  authorizationController.getRole,
 );
 
 authorizationRouter.post(
@@ -46,13 +63,7 @@ authorizationRouter.delete(
 );
 
 authorizationRouter.put(
-  "/users/:userId/roles",
-  requirePermissions(PERMISSIONS.USERS_ASSIGN_ROLES),
-  authorizationController.assignUserRole,
-);
-
-authorizationRouter.delete(
-  "/users/:userId/roles/:roleId",
-  requirePermissions(PERMISSIONS.USERS_ASSIGN_ROLES),
-  authorizationController.removeUserRole,
+  "/users/:userId/role",
+  requirePermissions(PERMISSIONS.USERS_UPDATE_ROLE),
+  authorizationController.updateUserRole,
 );

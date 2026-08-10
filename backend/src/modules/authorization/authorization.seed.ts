@@ -20,8 +20,8 @@ export const permissionDefinitions: ReadonlyArray<{
     description: "Activate, suspend, or disable user accounts",
   },
   {
-    name: PERMISSIONS.USERS_ASSIGN_ROLES,
-    description: "Assign and remove roles from users",
+    name: PERMISSIONS.USERS_UPDATE_ROLE,
+    description: "Change the single role assigned to a user",
   },
   {
     name: PERMISSIONS.ROLES_READ,
@@ -88,6 +88,22 @@ export const permissionDefinitions: ReadonlyArray<{
     description: "Initiate refunds",
   },
   {
+    name: PERMISSIONS.REFUNDS_EXECUTE,
+    description: "Execute requested refunds with the payment provider",
+  },
+  {
+    name: PERMISSIONS.PAYMENT_WEBHOOKS_READ,
+    description: "View payment webhook events",
+  },
+  {
+    name: PERMISSIONS.PAYMENT_WEBHOOKS_REPROCESS,
+    description: "Reprocess failed payment webhook events",
+  },
+  {
+    name: PERMISSIONS.ANALYTICS_READ,
+    description: "View operational analytics and dashboard summaries",
+  },
+  {
     name: PERMISSIONS.AUDIT_LOGS_READ,
     description: "View administrative audit logs",
   },
@@ -134,6 +150,10 @@ export const systemRoleDefinitions: ReadonlyArray<{
       PERMISSIONS.ORDERS_UPDATE,
       PERMISSIONS.REFUNDS_READ,
       PERMISSIONS.REFUNDS_CREATE,
+      PERMISSIONS.REFUNDS_EXECUTE,
+      PERMISSIONS.PAYMENT_WEBHOOKS_READ,
+      PERMISSIONS.PAYMENT_WEBHOOKS_REPROCESS,
+      PERMISSIONS.ANALYTICS_READ,
     ],
   },
   {
@@ -142,6 +162,7 @@ export const systemRoleDefinitions: ReadonlyArray<{
     permissions: [
       PERMISSIONS.USERS_READ,
       PERMISSIONS.USERS_UPDATE_STATUS,
+      PERMISSIONS.USERS_UPDATE_ROLE,
       PERMISSIONS.CATEGORIES_CREATE,
       PERMISSIONS.CATEGORIES_UPDATE,
       PERMISSIONS.CATEGORIES_DELETE,
@@ -153,6 +174,10 @@ export const systemRoleDefinitions: ReadonlyArray<{
       PERMISSIONS.ORDERS_UPDATE,
       PERMISSIONS.REFUNDS_READ,
       PERMISSIONS.REFUNDS_CREATE,
+      PERMISSIONS.REFUNDS_EXECUTE,
+      PERMISSIONS.PAYMENT_WEBHOOKS_READ,
+      PERMISSIONS.PAYMENT_WEBHOOKS_REPROCESS,
+      PERMISSIONS.ANALYTICS_READ,
       PERMISSIONS.AUDIT_LOGS_READ,
     ],
   },
@@ -237,9 +262,7 @@ export async function seedAuthorization(prisma: PrismaClient): Promise<void> {
 
     const usersWithoutRoles = await tx.user.findMany({
       where: {
-        assignedRoles: {
-          none: {},
-        },
+        assignedRole: null,
       },
       select: { id: true },
     });

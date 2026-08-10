@@ -1,14 +1,13 @@
+import { httpError } from "../../shared/errors/index.js";
+import { notFoundError as sharedNotFoundError } from "../../shared/errors/index.js";
+
 export function cartHttpError(
   statusCode: number,
   code: string,
   message: string,
   details?: unknown,
 ): Error {
-  return Object.assign(new Error(message), {
-    statusCode,
-    code,
-    details,
-  });
+  return httpError(statusCode, code, message, details);
 }
 
 export function productUnavailableError(message = "Product is unavailable") {
@@ -16,5 +15,5 @@ export function productUnavailableError(message = "Product is unavailable") {
 }
 
 export function cartItemNotFoundError() {
-  return cartHttpError(404, "CART_ITEM_NOT_FOUND", "Cart item not found");
+  return sharedNotFoundError("CART_ITEM_NOT_FOUND", "Cart item not found");
 }

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1100" role="img" aria-label="Studio essentials collection">
+  <rect width="900" height="1100" fill="#e9e8e2"/>
+  <rect x="70" y="120" width="760" height="820" rx="22" fill="#f7f6f0"/>
+  <rect x="152" y="210" width="210" height="520" rx="16" fill="#202629"/>
+  <rect x="400" y="286" width="310" height="444" rx="20" fill="#9eaa9e"/>
+  <rect x="450" y="344" width="210" height="86" rx="8" fill="#eef0e7" opacity="0.85"/>
+  <rect x="450" y="468" width="118" height="170" rx="14" fill="#202629" opacity="0.82"/>
+  <circle cx="258" cy="820" r="78" fill="#b8c2b4"/>
+  <rect x="382" y="812" width="330" height="46" rx="23" fill="#171d20" opacity="0.16"/>
+  <path d="M90 932 C288 874 548 906 810 858" stroke="#111417" stroke-opacity="0.14" stroke-width="3" fill="none"/>
+</svg>

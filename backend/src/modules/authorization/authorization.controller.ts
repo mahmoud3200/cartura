@@ -1,32 +1,80 @@
 import type { RequestHandler } from "express";
-import { z } from "zod";
 
 import { PERMISSIONS } from "./authorization.constants.js";
 import {
-  assignUserRoleSchema,
+  mapPaginatedResult,
+} from "../../shared/pagination/pagination.js";
+import {
+  getOptionalAuthenticatedUserId,
+  getPathParam,
+} from "../../shared/utils/request.utils.js";
+import { parseInput } from "../../shared/validation/parse-input.js";
+import {
   createRoleSchema,
+  listRolesQuerySchema,
   updateRolePermissionsSchema,
   updateRoleSchema,
+  updateUserRoleSchema,
 } from "./authorization.schemas.js";
 import { authorizationService } from "./authorization.service.js";
-import type { AuthenticatedRequest } from "../auth/index.js";
+import { getAuditContext } from "../audit-logs/audit-context.js";
+import {
+  mapPermission,
+  mapRole,
+  mapUserRoleOption,
+} from "./authorization.mapper.js";
 
 export class AuthorizationController {
-  listPermissions: RequestHandler = async (_req, res, next) => {
+  listCurrentUserPermissions: RequestHandler = async (req, res, next) => {
     try {
+      const userId = getOptionalAuthenticatedUserId(req) ?? "";
+
       res.status(200).json({
-        data: await authorizationService.listPermissions(),
+        data: await authorizationService.listUserPermissionNames(userId),
       });
     } catch (error) {
       next(error);
     }
   };
 
-  listRoles: RequestHandler = async (_req, res, next) => {
+  listPermissions: RequestHandler = async (_req, res, next) => {
     try {
       res.status(200).json({
-        data: await authorizationService.listRoles(),
+        data: (await authorizationService.listPermissions()).map(mapPermission),
       });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  listRoles: RequestHandler = async (req, res, next) => {
+    try {
+      const query = parseInput(listRolesQuerySchema, req.query);
+      const roles = await authorizationService.listRoles(query);
+
+      res.status(200).json(mapPaginatedResult(roles, mapRole));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  listAssignableUserRoles: RequestHandler = async (_req, res, next) => {
+    try {
+      const roles = await authorizationService.listAssignableUserRoles();
+
+      res.status(200).json({ data: roles.map(mapUserRoleOption) });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getRole: RequestHandler = async (req, res, next) => {
+    try {
+      const role = await authorizationService.getRole(
+        getPathParam(req.params.roleId),
+      );
+
+      res.status(200).json({ data: mapRole(role) });
     } catch (error) {
       next(error);
     }
@@ -34,9 +82,12 @@ export class AuthorizationController {
 
   createRole: RequestHandler = async (req, res, next) => {
     try {
-      const body = parseBody(createRoleSchema, req.body);
-      const role = await authorizationService.createCustomRole(body);
-      res.status(201).json({ data: role });
+      const body = parseInput(createRoleSchema, req.body);
+      const role = await authorizationService.createCustomRole(
+        body,
+        getAuditContext(req),
+      );
+      res.status(201).json({ data: mapRole(role) });
     } catch (error) {
       next(error);
     }
@@ -44,12 +95,13 @@ export class AuthorizationController {
 
   updateRole: RequestHandler = async (req, res, next) => {
     try {
-      const body = parseBody(updateRoleSchema, req.body);
+      const body = parseInput(updateRoleSchema, req.body);
       const role = await authorizationService.updateCustomRole({
         roleId: getPathParam(req.params.roleId),
         ...body,
+        audit: getAuditContext(req),
       });
-      res.status(200).json({ data: role });
+      res.status(200).json({ data: mapRole(role) });
     } catch (error) {
       next(error);
     }
@@ -57,10 +109,11 @@ export class AuthorizationController {
 
   updateRolePermissions: RequestHandler = async (req, res, next) => {
     try {
-      const body = parseBody(updateRolePermissionsSchema, req.body);
+      const body = parseInput(updateRolePermissionsSchema, req.body);
       await authorizationService.replaceRolePermissions({
         roleId: getPathParam(req.params.roleId),
         permissionIds: body.permissionIds,
+        audit: getAuditContext(req),
       });
       res.status(204).send();
     } catch (error) {
@@ -70,22 +123,26 @@ export class AuthorizationController {
 
   deleteRole: RequestHandler = async (req, res, next) => {
     try {
-      await authorizationService.deleteCustomRole(getPathParam(req.params.roleId));
+      await authorizationService.deleteCustomRole(
+        getPathParam(req.params.roleId),
+        getAuditContext(req),
+      );
       res.status(204).send();
     } catch (error) {
       next(error);
     }
   };
 
-  assignUserRole: RequestHandler = async (req, res, next) => {
+  updateUserRole: RequestHandler = async (req, res, next) => {
     try {
-      const body = parseBody(assignUserRoleSchema, req.body);
-      const assignedBy = (req as AuthenticatedRequest).principal?.userId;
+      const body = parseInput(updateUserRoleSchema, req.body);
+      const assignedBy = getOptionalAuthenticatedUserId(req);
 
-      await authorizationService.assignRole({
+      await authorizationService.updateUserRole({
         userId: getPathParam(req.params.userId),
         roleId: body.roleId,
         assignedBy,
+        audit: getAuditContext(req),
       });
 
       res.status(204).send();
@@ -94,39 +151,6 @@ export class AuthorizationController {
     }
   };
 
-  removeUserRole: RequestHandler = async (req, res, next) => {
-    try {
-      await authorizationService.removeRole({
-        userId: getPathParam(req.params.userId),
-        roleId: getPathParam(req.params.roleId),
-      });
-
-      res.status(204).send();
-    } catch (error) {
-      next(error);
-    }
-  };
-}
-
-function getPathParam(value: string | string[] | undefined): string {
-  return typeof value === "string" ? value : "";
-}
-
-function parseBody<TSchema extends z.ZodType>(
-  schema: TSchema,
-  body: unknown,
-): z.infer<TSchema> {
-  const result = schema.safeParse(body);
-
-  if (!result.success) {
-    throw Object.assign(new Error("Request validation failed"), {
-      statusCode: 400,
-      code: "VALIDATION_ERROR",
-      details: z.treeifyError(result.error),
-    });
-  }
-
-  return result.data;
 }
 
 export const authorizationController = new AuthorizationController();

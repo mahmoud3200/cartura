@@ -1,7 +1,11 @@
 import type { Prisma } from "../../../generated/prisma/client.js";
 
-export type CategoryWithChildren = Prisma.CategoryGetPayload<{
+export type CategoryWithParent = Prisma.CategoryGetPayload<{
   include: {
-    children: true;
+    parent: true;
   };
 }>;
+
+export type CategoryWithLineage = CategoryWithParent & {
+  parentCategory: Array<{ id: string; name: string; slug: string }> | null;
+};

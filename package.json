@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm --parallel --filter @cartura/contracts --filter @cartura/backend dev",
-    "dev:backend": "pnpm --filter @cartura/backend dev",
+    "dev": "pnpm redis:up && pnpm --parallel --filter @cartura/contracts --filter @cartura/backend --filter frontend dev",
+    "dev:backend": "pnpm redis:up && pnpm --filter @cartura/backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "redis:up": "docker compose -f compose.redis.yml up -d --build --wait redis",
+    "redis:down": "docker compose -f compose.redis.yml down",
+    "redis:logs": "docker compose -f compose.redis.yml logs -f redis",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"

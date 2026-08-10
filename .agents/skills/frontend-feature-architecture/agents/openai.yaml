@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Feature Architecture"
+  short_description: "Structure frontend features and server boundaries"
+  default_prompt: "Use $frontend-feature-architecture to build or refactor this frontend feature so render reads use Server Components, UI mutations use feature-local Server Actions, and Route Handlers exist only for real HTTP endpoints."

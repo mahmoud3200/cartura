@@ -1,1 +1,4 @@
-export type { AuthenticatedRequest, Principal } from "../auth/index.js";
+export type {
+  AuthenticatedRequest,
+  Principal,
+} from "../../shared/types/authenticated-request.js";

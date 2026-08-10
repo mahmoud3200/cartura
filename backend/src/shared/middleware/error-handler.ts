@@ -1,12 +1,15 @@
 import type { ErrorRequestHandler } from "express";
+import { toHttpError } from "../errors/index.js";
+import { getRequestContext } from "./request-context.js";
 
 export const errorHandler: ErrorRequestHandler = (
   error: unknown,
-  _req,
+  req,
   res,
   _next,
 ) => {
   const httpError = toHttpError(error);
+  const requestId = getRequestContext(req).requestId;
 
   if (httpError) {
     res.status(httpError.statusCode).json({
@@ -14,6 +17,7 @@ export const errorHandler: ErrorRequestHandler = (
         code: httpError.code,
         message: httpError.message,
         details: httpError.details,
+        requestId,
       },
     });
     return;
@@ -24,48 +28,8 @@ export const errorHandler: ErrorRequestHandler = (
   res.status(500).json({
     error: {
       code: "INTERNAL_SERVER_ERROR",
-      message: "An unexpected error occurred",
+      message: error instanceof Error ? `Unexpected error: ${error.message} - ${error.stack}` : "An unexpected error occurred",
+      requestId,
     },
   });
 };
-
-type HttpErrorShape = {
-  statusCode: number;
-  code: string;
-  message: string;
-  details?: unknown;
-};
-
-function toHttpError(error: unknown): HttpErrorShape | null {
-  if (!error || typeof error !== "object") {
-    return null;
-  }
-
-  const maybeError = error as {
-    status?: unknown;
-    statusCode?: unknown;
-    code?: unknown;
-    message?: unknown;
-    details?: unknown;
-  };
-  const statusCode =
-    typeof maybeError.statusCode === "number"
-      ? maybeError.statusCode
-      : typeof maybeError.status === "number"
-        ? maybeError.status
-        : null;
-
-  if (!statusCode || statusCode < 400 || statusCode > 599) {
-    return null;
-  }
-
-  return {
-    statusCode,
-    code: typeof maybeError.code === "string" ? maybeError.code : "HTTP_ERROR",
-    message:
-      typeof maybeError.message === "string"
-        ? maybeError.message
-        : "Request failed",
-    details: maybeError.details,
-  };
-}

@@ -6,6 +6,8 @@ users [icon: user, color: lightblue] {
   image string nullable
   two_factor_enabled boolean
   account_status string "active|suspended|disabled"
+  account_status_reason string nullable
+  suspended_until datetime nullable
   created_at datetime
   updated_at datetime
 }
@@ -71,7 +73,7 @@ permissions [icon: key-round, color: purple] {
 
 user_roles [icon: link, color: purple] {
   user_id UUID pk fk
-  role_id UUID pk fk
+  role_id UUID fk
   assigned_by UUID nullable fk
   assigned_at datetime
 }
@@ -95,6 +97,7 @@ addresses [icon: map-pin, color: orange] {
   is_default boolean "partial unique per user when true"
   created_at datetime
   updated_at datetime
+  max_per_user int "20"
 }
 
 categories [icon: folder-tree, color: green] {
@@ -104,6 +107,7 @@ categories [icon: folder-tree, color: green] {
   slug string unique
   description string nullable
   image_url string nullable
+  image_asset_id UUID nullable unique fk
   is_active boolean
   created_by UUID nullable fk
   created_at datetime
@@ -132,9 +136,32 @@ product_categories [icon: link, color: green] {
 product_images [icon: image, color: green] {
   id UUID7 pk
   product_id UUID fk
+  media_asset_id UUID nullable unique fk
   image_url string
   alt_text string nullable
   display_order int ">= 0"
+  created_at datetime
+  updated_at datetime
+}
+
+media_assets [icon: image-up, color: cyan] {
+  id UUID7 pk
+  provider string "cloudinary"
+  public_id string unique
+  secure_url string
+  canonical_url string
+  usage string "product_image|category_banner"
+  status string "pending|attached"
+  mime_type string
+  format string
+  bytes int
+  width int
+  height int
+  variants json nullable
+  uploaded_by UUID nullable fk
+  attached_resource_type string nullable
+  attached_resource_id UUID nullable
+  attached_at datetime nullable
   created_at datetime
   updated_at datetime
 }
@@ -308,6 +335,7 @@ outbox_events [icon: inbox, color: slate] {
 
 db_integrity_rules [icon: shield-check, color: red] {
   one_default_address_per_user partial_unique_index
+  max_20_addresses_per_user trigger
   category_cycle_prevention trigger
   numeric_money_stock_quantity_checks postgres_check_constraints
   status_value_checks postgres_check_constraints
@@ -327,6 +355,9 @@ permissions.id < role_permissions.permission_id
 categories.id < categories.parent_category_id
 users.id < categories.created_by
 users.id < products.created_by
+users.id < media_assets.uploaded_by
+media_assets.id - categories.image_asset_id
+media_assets.id - product_images.media_asset_id
 products.id < product_categories.product_id
 categories.id < product_categories.category_id
 products.id < product_images.product_id

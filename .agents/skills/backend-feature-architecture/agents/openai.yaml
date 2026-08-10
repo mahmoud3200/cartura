@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backend Feature Architecture"
+  short_description: "Strict Express module responsibility boundaries"
+  default_prompt: "Use $backend-feature-architecture to structure or refactor this Express backend feature."
