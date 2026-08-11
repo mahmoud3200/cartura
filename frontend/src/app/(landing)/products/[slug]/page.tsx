@@ -9,6 +9,7 @@ import {
 } from "@/features/storefront/products/api/products-api";
 import { StorefrontApiError } from "@/features/storefront/shared/api/catalog-client";
 import { ProductDetailPage } from "@/features/storefront/products/components/product-detail-page";
+import { ProductDetailSkeleton } from "@/features/storefront/products/ui/product-detail-skeleton";
 import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
 import { listAddresses } from "@/features/account/api/addresses-api";
 
@@ -50,7 +51,7 @@ export async function generateMetadata(
 
 export default function ProductRoutePage(context: ProductRouteContext) {
   return (
-    <Suspense fallback={<ProductPageLoading />}>
+    <Suspense fallback={<ProductDetailSkeleton />}>
       <ProductRouteContent context={context} />
     </Suspense>
   );
@@ -74,8 +75,9 @@ async function ProductRouteContent({
       )
     : null;
   const relatedProducts =
-    related?.data.filter((relatedProduct) => relatedProduct.id !== product.id).slice(0, 4) ??
-    [];
+    related?.data
+      .filter((relatedProduct) => relatedProduct.id !== product.id)
+      .slice(0, 4) ?? [];
   const addresses = user ? await listAddresses().catch(() => []) : undefined;
 
   return (
@@ -85,17 +87,6 @@ async function ProductRouteContent({
       isAuthenticated={Boolean(user)}
       addresses={addresses}
     />
-  );
-}
-
-function ProductPageLoading() {
-  return (
-    <main className="min-h-[70dvh] animate-pulse px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
-        <div className="aspect-[4/5] rounded-xl bg-muted" />
-        <div className="h-[32rem] rounded-xl bg-muted" />
-      </div>
-    </main>
   );
 }
 

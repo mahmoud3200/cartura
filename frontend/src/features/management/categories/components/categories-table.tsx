@@ -1,5 +1,6 @@
 "use client";
 
+import type { Category } from "@cartura/contracts/catalog";
 import { StatusBadge } from "@/features/management/shared/components/admin-ui";
 import { ManagementRowActions } from "@/features/management/shared/components/management-row-actions";
 import {
@@ -8,7 +9,6 @@ import {
 } from "@/features/management/shared/components/management-table";
 import { formatDateTime } from "@/features/management/shared/lib/admin-utils";
 import { useDeleteManagementCategory } from "../hooks/use-categories";
-import type { ManagementCategory } from "../types";
 
 const columns = [
   { label: "Category" },
@@ -23,7 +23,7 @@ export function CategoriesTable({
   canUpdateCategories = false,
   canDeleteCategories = false,
 }: {
-  categories: ManagementCategory[];
+  categories: Category[];
   canUpdateCategories?: boolean;
   canDeleteCategories?: boolean;
 }) {

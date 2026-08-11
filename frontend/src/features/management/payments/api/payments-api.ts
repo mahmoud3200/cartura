@@ -2,8 +2,8 @@ import "server-only";
 
 import {
   paymentWebhookEventSchema,
+  reprocessPaymentWebhookResponseSchema,
   type ListPaymentWebhookEventsQuery,
-  type PaymentWebhookEvent,
 } from "@cartura/contracts/payments";
 
 import {
@@ -11,9 +11,6 @@ import {
   fetchManagementPaginated,
   type ManagementPaginationInput,
 } from "@/features/management/shared/api/management-api";
-import { z } from "zod";
-
-export type ManagementWebhookEvent = PaymentWebhookEvent;
 
 export async function listManagementWebhookEvents(
   input: ManagementPaginationInput &
@@ -34,11 +31,7 @@ export async function listManagementWebhookEvents(
 export function reprocessManagementWebhookEvent(eventId: string) {
   return fetchManagementData(
     `/api/v1/management/payments/webhook-events/${encodeURIComponent(eventId)}/reprocess`,
-    z.object({
-      matched: z.boolean(),
-      duplicate: z.boolean().optional(),
-      manualReview: z.boolean().optional(),
-    }),
+    reprocessPaymentWebhookResponseSchema,
     { method: "POST" },
   );
 }

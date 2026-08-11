@@ -1,6 +1,6 @@
+import type { Product } from "@cartura/contracts/catalog";
 import { useState, type FormEvent } from "react";
 
-import type { ManagementProduct } from "../api/products-api";
 import {
   productFormSchema,
   productSlugFromName,
@@ -20,7 +20,7 @@ export function useProductForm({
   product,
 }: {
   mode?: "create" | "edit";
-  product?: ManagementProduct;
+  product?: Product;
 }) {
   const [fieldErrors, setFieldErrors] = useState<ProductFieldErrors>({});
   const [form, setForm] = useState<ProductFormState>(() =>
@@ -113,7 +113,7 @@ export function useProductForm({
 }
 
 function createInitialProductForm(
-  product?: ManagementProduct,
+  product?: Product,
 ): ProductFormState {
   return {
     name: product?.name ?? "",

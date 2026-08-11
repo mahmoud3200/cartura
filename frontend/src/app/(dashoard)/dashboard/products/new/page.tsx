@@ -1,5 +1,5 @@
 import { ProductForm } from "@/features/management/products/components/product-form/product-form";
-import { listCurrentManagementPermissionNames } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import { PageHeader } from "@/features/management/shared/components/admin-ui";
 import {
   ManagementBackLink,

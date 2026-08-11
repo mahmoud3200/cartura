@@ -22,12 +22,14 @@ export default async function ProductsPage({
   const params = await searchParams;
   const query = getManagementQuery(params.q);
   const inStockFilter = getManagementFilter(params.inStock);
-  const inStock =
-    inStockFilter === "true"
-      ? true
-      : inStockFilter === "false"
-        ? false
-        : undefined;
+  const parsedFilters = listProductsQuerySchema.safeParse({
+    page: 1,
+    limit: PRODUCTS_PAGE_SIZE,
+    inStock: inStockFilter,
+  });
+  const inStock = parsedFilters.success
+    ? parsedFilters.data.inStock
+    : undefined;
 
   const currentPermissions =
     await requireManagementRouteAccess("/dashboard/products");
@@ -80,3 +82,4 @@ export default async function ProductsPage({
     </div>
   );
 }
+import { listProductsQuerySchema } from "@cartura/contracts/catalog";

@@ -15,11 +15,13 @@ export const paymentWebhookEventStatusSchema = z.enum([
 export const PAYMENT_WEBHOOK_EVENT_STATUSES =
   paymentWebhookEventStatusSchema.options;
 
+export const paymentProviderSchema = z.enum(["paymob"]);
+
 export const listPaymentWebhookEventsQuerySchema = z.intersection(
   paginationQuerySchema,
   z.object({
     status: paymentWebhookEventStatusSchema.optional(),
-    provider: z.enum(["paymob"]).optional(),
+    provider: paymentProviderSchema.optional(),
     paymentId: z.uuid().optional(),
   }),
 );
@@ -38,8 +40,19 @@ export const paymentWebhookEventSchema = z.object({
   processedAt: z.string().nullable(),
 });
 
+export const reprocessPaymentWebhookResponseSchema = z.object({
+  matched: z.boolean(),
+  duplicate: z.boolean().optional(),
+  manualReview: z.boolean().optional(),
+  refundCompleted: z.boolean().optional(),
+});
+
 export type PaymobWebhookQuery = z.infer<typeof paymobWebhookQuerySchema>;
 export type ListPaymentWebhookEventsQuery = z.infer<
   typeof listPaymentWebhookEventsQuerySchema
 >;
 export type PaymentWebhookEvent = z.infer<typeof paymentWebhookEventSchema>;
+export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
+export type ReprocessPaymentWebhookResponse = z.infer<
+  typeof reprocessPaymentWebhookResponseSchema
+>;

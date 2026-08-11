@@ -20,7 +20,7 @@ import {
 import { ApiError, serverApiFetch } from "@/shared/api/server-api";
 
 export async function register(input: RegisterRequest) {
-  return serverApiFetch<unknown>("/api/v1/auth/sign-up/email", {
+  await serverApiFetch<void>("/api/v1/auth/sign-up/email", {
     method: "POST",
     json: input,
     storeCookies: true,
@@ -40,7 +40,7 @@ export async function login(input: LoginRequest): Promise<LoginResponse> {
 }
 
 export async function logout() {
-  return serverApiFetch<unknown>("/api/v1/auth/sign-out", {
+  await serverApiFetch<void>("/api/v1/auth/sign-out", {
     method: "POST",
     json: {},
     storeCookies: true,
@@ -50,7 +50,7 @@ export async function logout() {
 export async function resendVerificationEmail(
   input: Pick<VerifyEmailRequest, "email">,
 ) {
-  return serverApiFetch<unknown>("/api/v1/auth/email-otp/send-verification-otp", {
+  await serverApiFetch<void>("/api/v1/auth/email-otp/send-verification-otp", {
     method: "POST",
     json: {
       email: input.email,
@@ -61,7 +61,7 @@ export async function resendVerificationEmail(
 }
 
 export async function verifyEmail(input: VerifyEmailRequest) {
-  return serverApiFetch<unknown>("/api/v1/auth/email-otp/verify-email", {
+  await serverApiFetch<void>("/api/v1/auth/email-otp/verify-email", {
     method: "POST",
     json: {
       email: input.email,
@@ -73,7 +73,7 @@ export async function verifyEmail(input: VerifyEmailRequest) {
 }
 
 export async function forgotPassword(input: ForgotPasswordRequest) {
-  return serverApiFetch<unknown>("/api/v1/auth/email-otp/request-password-reset", {
+  await serverApiFetch<void>("/api/v1/auth/email-otp/request-password-reset", {
     method: "POST",
     json: input,
     withAuth: false,
@@ -81,7 +81,7 @@ export async function forgotPassword(input: ForgotPasswordRequest) {
 }
 
 export async function resetPassword(input: ResetPasswordRequest) {
-  return serverApiFetch<unknown>("/api/v1/auth/email-otp/reset-password", {
+  await serverApiFetch<void>("/api/v1/auth/email-otp/reset-password", {
     method: "POST",
     json: {
       email: input.email,
@@ -94,7 +94,7 @@ export async function resetPassword(input: ResetPasswordRequest) {
 }
 
 export async function sendTwoFactorOtp(input: SendTwoFactorOtpRequest) {
-  return serverApiFetch<unknown>("/api/v1/auth/two-factor/send-otp", {
+  await serverApiFetch<void>("/api/v1/auth/two-factor/send-otp", {
     method: "POST",
     json: input ?? {},
     forwardCookies: true,
@@ -118,7 +118,7 @@ export async function verifyTwoFactorOtp(
 }
 
 export async function disableTwoFactor(input: DisableTwoFactorRequest) {
-  return serverApiFetch<unknown>("/api/v1/auth/two-factor/disable", {
+  await serverApiFetch<void>("/api/v1/auth/two-factor/disable", {
     method: "POST",
     json: input,
     storeCookies: true,
@@ -154,9 +154,5 @@ export const getCurrentAuthUser = cache(async function getCurrentAuthUser() {
     throw error;
   }
 
-  const user = payload && typeof payload === "object" && "user" in payload
-    ? payload.user
-    : null;
-
-  return authMeResponseSchema.parse({ user }).user;
+  return authMeResponseSchema.parse(payload).user;
 });

@@ -1,3 +1,4 @@
+import { categoryListResponseSchema } from "@cartura/contracts/catalog";
 import type { NextRequest } from "next/server";
 
 import { proxyManagementGet } from "@/features/management/shared/api/management-route-proxy";
@@ -5,5 +6,6 @@ import { proxyManagementGet } from "@/features/management/shared/api/management-
 export function GET(request: NextRequest) {
   return proxyManagementGet(request, "/api/v1/catalog/categories", {
     withAuth: false,
+    responseSchema: categoryListResponseSchema,
   });
 }

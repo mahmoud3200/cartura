@@ -2,7 +2,7 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 
-import { listCurrentManagementPermissionNames } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import {
   canAccessManagementRoute,
   getManagementLandingPath,

@@ -1,8 +1,8 @@
 import {
   getManagementRole,
-  listCurrentManagementPermissionNames,
   listManagementPermissions,
 } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import { RoleForm } from "@/features/management/roles/components/role-form/role-form";
 import { SystemRoleNotice } from "@/features/management/roles/ui/system-role-notice";
 import { PageHeader } from "@/features/management/shared/components/admin-ui";

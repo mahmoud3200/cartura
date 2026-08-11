@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import type { AnalyticsRangePreset } from "@cartura/contracts/analytics";
 
-import { getAnalyticsRangeLabel } from "@/features/management/analytics/analytics-range";
+import { getAnalyticsRangeLabel } from "@/features/management/analytics/lib/analytics-range";
 import { cn } from "@/shared/lib/utils";
 
 const analyticsRanges: AnalyticsRangePreset[] = ["7d", "30d", "90d", "all"];

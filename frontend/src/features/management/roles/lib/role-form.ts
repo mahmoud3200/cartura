@@ -1,7 +1,7 @@
 import { createRoleRequestSchema } from "@cartura/contracts/authorization";
 import { z } from "zod";
+import type { Permission } from "@cartura/contracts/authorization";
 
-import type { ManagementPermission } from "../api/roles-api";
 
 export type RoleFormState = {
   name: string;
@@ -33,8 +33,8 @@ export function toRoleFieldErrors(error: z.ZodError): RoleFieldErrors {
   };
 }
 
-export function groupPermissions(permissions: ManagementPermission[]) {
-  const groups = new Map<string, ManagementPermission[]>();
+export function groupPermissions(permissions: Permission[]) {
+  const groups = new Map<string, Permission[]>();
 
   for (const permission of permissions) {
     const group = permission.name.split(".")[0] ?? "other";

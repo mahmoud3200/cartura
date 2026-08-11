@@ -11,7 +11,8 @@ import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { reviewRefundAction } from "../actions/review-refund.action";
+
+import { reviewRefundAction } from "../../actions/review-refund.action";
 
 export function RefundReviewDialog({
   refund,
@@ -28,6 +29,37 @@ export function RefundReviewDialog({
   const [reviewNote, setReviewNote] = useState("");
   const [isPending, startTransition] = useTransition();
 
+  function handleSubmit() {
+    const input: ReviewRefundRequest =
+      decision === "reject"
+        ? { decision, reviewNote: reviewNote.trim() }
+        : {
+            decision,
+            resolution,
+            reviewNote: reviewNote.trim() || undefined,
+            pickupScheduledAt:
+              resolution === "pickup" && pickupScheduledAt
+                ? new Date(pickupScheduledAt).toISOString()
+                : undefined,
+          };
+
+    startTransition(async () => {
+      const result = await reviewRefundAction(refund.id, input);
+
+      if (!result.ok) {
+        toast.error("Return review not saved", {
+          description: result.message,
+        });
+        return;
+      }
+
+      toast.success(
+        decision === "approve" ? "Return approved" : "Return rejected",
+      );
+      onSaved();
+    });
+  }
+
   return (
     <div
       role="dialog"
@@ -39,34 +71,7 @@ export function RefundReviewDialog({
         className="my-auto w-full max-w-xl rounded-xl border border-border bg-card p-5 shadow-xl sm:p-6"
         onSubmit={(event) => {
           event.preventDefault();
-          const input: ReviewRefundRequest =
-            decision === "reject"
-              ? { decision, reviewNote: reviewNote.trim() }
-              : {
-                  decision,
-                  resolution,
-                  reviewNote: reviewNote.trim() || undefined,
-                  pickupScheduledAt:
-                    resolution === "pickup" && pickupScheduledAt
-                      ? new Date(pickupScheduledAt).toISOString()
-                      : undefined,
-                };
-
-          startTransition(async () => {
-            const result = await reviewRefundAction(refund.id, input);
-
-            if (!result.ok) {
-              toast.error("Return review not saved", {
-                description: result.message,
-              });
-              return;
-            }
-
-            toast.success(
-              decision === "approve" ? "Return approved" : "Return rejected",
-            );
-            onSaved();
-          });
+          handleSubmit();
         }}
       >
         <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
@@ -128,7 +133,9 @@ export function RefundReviewDialog({
 
         <div className="mt-5 space-y-2">
           <Label htmlFor="refund-review-note">
-            {decision === "reject" ? "Reason for rejection" : "Review note (optional)"}
+            {decision === "reject"
+              ? "Reason for rejection"
+              : "Review note (optional)"}
           </Label>
           <textarea
             id="refund-review-note"
@@ -142,7 +149,12 @@ export function RefundReviewDialog({
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isPending}
+          >
             Cancel
           </Button>
           <Button
@@ -150,7 +162,11 @@ export function RefundReviewDialog({
             variant={decision === "reject" ? "destructive" : "default"}
             disabled={isPending}
           >
-            {isPending ? "Saving..." : decision === "approve" ? "Approve return" : "Reject return"}
+            {isPending
+              ? "Saving..."
+              : decision === "approve"
+                ? "Approve return"
+                : "Reject return"}
           </Button>
         </div>
       </form>
@@ -190,7 +206,9 @@ function ResolutionOption({
   onChange: () => void;
 }) {
   return (
-    <label className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${checked ? "border-foreground/30 bg-muted/50" : "border-border hover:bg-muted/30"}`}>
+    <label
+      className={`flex cursor-pointer gap-3 rounded-lg border p-4 transition ${checked ? "border-foreground/30 bg-muted/50" : "border-border hover:bg-muted/30"}`}
+    >
       <input
         type="radio"
         name="resolution"
@@ -200,7 +218,9 @@ function ResolutionOption({
       />
       <span>
         <span className="block text-sm font-medium">{title}</span>
-        <span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span>
+        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+          {description}
+        </span>
       </span>
     </label>
   );

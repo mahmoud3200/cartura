@@ -1,6 +1,6 @@
 import { listAddresses } from "@/features/account/api/addresses-api";
 import { listCustomerOrders } from "@/features/account/api/orders-api";
-import { AccountOverview } from "@/features/account/components/account-overview";
+import { AccountOverview } from "@/features/account/components/account-overview/account-overview";
 import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
 
 export default async function AccountOverviewPage() {

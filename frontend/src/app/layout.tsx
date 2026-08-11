@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 import "@/styles/globals.css";
+import { QueryProvider } from "@/shared/components/query-provider";
 import { Toaster } from "@/shared/ui/toaster";
 import { ThemeProvider } from "@/shared/components/theme-provider";
-import { QueryProvider } from "@/features/management/shared/components/query-provider";
 import { CartStoreProvider } from "@/shared/components/cart-store-provider";
 
 const frontendUrl =

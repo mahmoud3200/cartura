@@ -45,7 +45,7 @@ export async function setDefaultAddress(addressId: string) {
 }
 
 export async function deleteAddress(addressId: string) {
-  await serverApiFetch<unknown>(`/api/v1/addresses/${addressId}`, {
+  await serverApiFetch<void>(`/api/v1/addresses/${addressId}`, {
     method: "DELETE",
   });
 }

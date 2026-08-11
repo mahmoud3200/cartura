@@ -1,3 +1,4 @@
+import type { Product } from "@cartura/contracts/catalog";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowRight, PackageCheck, Search, UserRound } from "lucide-react";
@@ -7,17 +8,14 @@ import {
   benefits,
   styleEdit,
 } from "@/features/storefront/home/data/storefront-content";
-import {
-  listStorefrontProducts,
-  type StorefrontProduct,
-} from "../../products/api/products-api";
+import { listStorefrontProducts } from "../../products/api/products-api";
 import { ProductCard } from "../../products/ui/product-card";
 import { CatalogEmptyState } from "../../shared/ui/catalog-empty-state";
 
 const benefitIcons = [PackageCheck, Search, UserRound];
 
 type ProductShowcaseProps = {
-  products: StorefrontProduct[];
+  products: Product[];
   isUnavailable?: boolean;
 };
 

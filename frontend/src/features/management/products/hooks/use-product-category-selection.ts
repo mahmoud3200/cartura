@@ -1,7 +1,7 @@
+import type { Product } from "@cartura/contracts/catalog";
 import { useMemo, useState } from "react";
 
 import type { CategoryOption } from "@/features/catalog-selection/types";
-import type { ManagementProduct } from "../api/products-api";
 import {
   addDirectCategory,
   createInitialCategorySelection,
@@ -9,7 +9,7 @@ import {
 } from "../lib/product-category-selection";
 
 export function useProductCategorySelection(
-  initialCategories: ManagementProduct["categories"] = [],
+  initialCategories: Product["categories"] = [],
 ) {
   const initial = createInitialCategorySelection(initialCategories);
   const [directIds, setDirectIds] = useState(initial.directIds);

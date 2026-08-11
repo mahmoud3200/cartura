@@ -6,7 +6,6 @@ import { Banknote, CreditCard, MapPin, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
-import { formatPrice } from "@/features/storefront/products/ui/product-card";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -18,6 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/ui/select";
+import {
+  formatCartAddressOption,
+  formatCartMoney,
+} from "../lib/cart-formatters";
 
 type BuyNowSheetProps = {
   isOpen: boolean;
@@ -85,7 +88,7 @@ export function BuyNowSheet({
           <div className="rounded-lg border border-border bg-card p-4">
             <h3 className="font-medium">{productName}</h3>
             <p className="mt-1 font-mono text-sm text-muted-foreground">
-              {formatPrice(productPrice)}
+              {formatCartMoney(productPrice)}
             </p>
             <p className="mt-3 text-xs text-muted-foreground">Quantity: 1</p>
           </div>
@@ -104,7 +107,7 @@ export function BuyNowSheet({
                   <SelectValue>
                     {() =>
                       selectedAddress
-                        ? formatAddressOption(selectedAddress)
+                        ? formatCartAddressOption(selectedAddress)
                         : "Choose a delivery address"
                     }
                   </SelectValue>
@@ -115,7 +118,7 @@ export function BuyNowSheet({
                       <SelectList>
                         {addresses.map((address) => (
                           <SelectItem key={address.id} value={address.id}>
-                            {formatAddressOption(address)}
+                            {formatCartAddressOption(address)}
                           </SelectItem>
                         ))}
                       </SelectList>
@@ -197,7 +200,7 @@ export function BuyNowSheet({
             <div className="flex items-center justify-between font-semibold">
               <span>Total</span>
               <span className="font-mono text-lg tabular-nums">
-                {formatPrice(productPrice)}
+                {formatCartMoney(productPrice)}
               </span>
             </div>
             <Button
@@ -229,8 +232,4 @@ export function BuyNowSheet({
       </div>
     </>
   );
-}
-
-function formatAddressOption(address: AddressResponse) {
-  return `${address.addressName}${address.isDefault ? " (default)" : ""} - ${address.area}, ${address.city}`;
 }

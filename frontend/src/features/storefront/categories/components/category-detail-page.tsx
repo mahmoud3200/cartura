@@ -1,11 +1,10 @@
+import type {
+  Category,
+  PaginationResponse,
+  Product,
+} from "@cartura/contracts/catalog";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-import type { StorefrontCategory } from "../api/categories-api";
-import type {
-  StorefrontPagination,
-  StorefrontProduct,
-} from "../../products/api/products-api";
 import { ProductCard } from "../../products/ui/product-card";
 import { CatalogEmptyState } from "../../shared/ui/catalog-empty-state";
 import { ProductFilters } from "../../products/ui/product-filters";
@@ -14,9 +13,9 @@ import { CatalogPagination } from "../../shared/ui/catalog-pagination";
 import { CategoryDetailHero } from "../ui/category-detail-hero";
 
 type CategoryDetailPageProps = {
-  category: StorefrontCategory;
-  products: StorefrontProduct[];
-  pagination?: StorefrontPagination;
+  category: Category;
+  products: Product[];
+  pagination?: PaginationResponse;
   filters: ProductFilterValues;
 };
 

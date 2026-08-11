@@ -6,7 +6,7 @@ import { ShoppingBag } from "lucide-react";
 
 import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
 import { ThemeToggle } from "@/shared/ui/theme-toggle";
-import { listCurrentManagementPermissionNames } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import { getManagementLandingPath } from "@/features/management/shared/lib/management-access";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {

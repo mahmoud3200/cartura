@@ -1,7 +1,4 @@
-import type {
-  Category,
-  ListCategoriesQuery,
-} from "@cartura/contracts/catalog";
+import type { ListCategoriesQuery } from "@cartura/contracts/catalog";
 import {
   categoryListResponseSchema,
   categoryResponseSchema,
@@ -14,11 +11,8 @@ import {
   withSearchParams,
 } from "../../shared/api/catalog-client";
 
-export type StorefrontCategory = Category;
-export type StorefrontCategoryListInput = Partial<ListCategoriesQuery>;
-
 export async function listStorefrontCategories(
-  input: StorefrontCategoryListInput = {},
+  input: Partial<ListCategoriesQuery> = {},
 ) {
   "use cache";
 

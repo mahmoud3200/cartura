@@ -1,5 +1,6 @@
 "use client";
 
+import type { PaginationMetadata } from "@cartura/contracts/common";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -7,19 +8,10 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
-type PaginationMeta = {
-  page: number;
-  limit: number;
-  totalItems: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 export function PaginationControls({
   pagination,
 }: {
-  pagination: PaginationMeta;
+  pagination: PaginationMetadata;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();

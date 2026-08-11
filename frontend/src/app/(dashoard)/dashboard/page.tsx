@@ -1,8 +1,11 @@
 import { getAnalyticsOverview } from "@/features/management/analytics/api/analytics-api";
 import { AnalyticsOverview } from "@/features/management/analytics/components/analytics-overview/analytics-overview";
-import { parseAnalyticsRange } from "@/features/management/analytics/analytics-range";
-import { listCurrentManagementPermissionNames } from "@/features/management/roles/api/roles-api";
-import { canAccessManagementRoute, getManagementLandingPath } from "@/features/management/shared/lib/management-access";
+import { parseAnalyticsRange } from "@/features/management/analytics/lib/analytics-range";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
+import {
+  canAccessManagementRoute,
+  getManagementLandingPath,
+} from "@/features/management/shared/lib/management-access";
 import type { ManagementSearchParams } from "@/features/management/shared/lib/management-search-params";
 import { redirect } from "next/navigation";
 

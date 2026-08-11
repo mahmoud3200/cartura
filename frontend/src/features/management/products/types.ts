@@ -1,7 +1,7 @@
-import type { ManagementMediaAsset } from "@/features/management/shared/api/media-api";
+import type { MediaAssetResponse } from "@cartura/contracts/media";
 
 export type PendingProductImage = {
-  asset: ManagementMediaAsset;
+  asset: MediaAssetResponse;
   previewUrl: string;
   altText?: string;
 };

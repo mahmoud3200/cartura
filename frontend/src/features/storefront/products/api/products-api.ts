@@ -1,9 +1,4 @@
-import type {
-  ListProductsQuery,
-  PaginationResponse,
-  Product,
-  ProductListResponse,
-} from "@cartura/contracts/catalog";
+import type { ListProductsQuery } from "@cartura/contracts/catalog";
 import {
   listProductsQuerySchema,
   productListResponseSchema,
@@ -16,13 +11,8 @@ import {
   withSearchParams,
 } from "../../shared/api/catalog-client";
 
-export type StorefrontProduct = Product;
-export type StorefrontPagination = PaginationResponse;
-export type StorefrontProductList = ProductListResponse;
-export type StorefrontProductListInput = Partial<ListProductsQuery>;
-
 export async function listStorefrontProducts(
-  input: StorefrontProductListInput = {},
+  input: Partial<ListProductsQuery> = {},
 ) {
   "use cache";
 
@@ -38,7 +28,7 @@ export async function listStorefrontProducts(
 
 export async function listStorefrontCategoryProducts(
   categorySlug: string,
-  input: StorefrontProductListInput = {},
+  input: Partial<ListProductsQuery> = {},
 ) {
   "use cache";
 

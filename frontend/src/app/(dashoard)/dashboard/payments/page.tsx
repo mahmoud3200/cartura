@@ -1,4 +1,7 @@
-import type { ListPaymentWebhookEventsQuery } from "@cartura/contracts/payments";
+import {
+  paymentProviderSchema,
+  paymentWebhookEventStatusSchema,
+} from "@cartura/contracts/payments";
 
 import { listManagementWebhookEvents } from "@/features/management/payments/api/payments-api";
 import { PaymentWebhookEventsTable } from "@/features/management/payments/components/payment-webhook-events-table";
@@ -20,10 +23,14 @@ export default async function PaymentsPage({
   searchParams: ManagementSearchParams;
 }) {
   const params = await searchParams;
-  const status = getManagementFilter(params.status) as
-    | ListPaymentWebhookEventsQuery["status"];
-  const provider = getManagementFilter(params.provider) as
-    | ListPaymentWebhookEventsQuery["provider"];
+  const status = paymentWebhookEventStatusSchema
+    .optional()
+    .catch(undefined)
+    .parse(getManagementFilter(params.status));
+  const provider = paymentProviderSchema
+    .optional()
+    .catch(undefined)
+    .parse(getManagementFilter(params.provider));
   const permissionNames =
     await requireManagementRouteAccess("/dashboard/payments");
   const events = await listManagementWebhookEvents({

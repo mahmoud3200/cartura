@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { StorefrontCategory } from "../api/categories-api";
+import type { Category } from "@cartura/contracts/catalog";
 import {
   filterCategoriesByLevel,
   parseCategoryFilters,
@@ -9,7 +9,7 @@ import {
 const categories = [
   { id: "main", parentCategoryId: null },
   { id: "child", parentCategoryId: "main" },
-] as StorefrontCategory[];
+] as Category[];
 
 describe("category storefront filters", () => {
   it("normalizes search and category level values", () => {

@@ -8,7 +8,6 @@ import {
   userSchema,
   type ListUsersQuery,
   type UpdateUserStatusRequest,
-  type User,
 } from "@cartura/contracts/users";
 
 import {
@@ -17,8 +16,6 @@ import {
   type ManagementPaginationInput,
 } from "@/features/management/shared/api/management-api";
 import { serverApiFetch } from "@/shared/api/server-api";
-export type ManagementUser = User;
-
 export async function listManagementUsers(
   input: ManagementPaginationInput &
     Pick<ListUsersQuery, "q" | "accountStatus" | "emailVerified">,
@@ -67,7 +64,7 @@ export async function updateManagementUserRole(
   userId: string,
   input: UpdateUserRoleRequest,
 ) {
-  await serverApiFetch<unknown>(
+  await serverApiFetch<void>(
     `/api/v1/management/authorization/users/${encodeURIComponent(userId)}/role`,
     {
       method: "PUT",

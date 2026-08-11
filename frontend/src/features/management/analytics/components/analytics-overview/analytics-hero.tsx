@@ -2,7 +2,7 @@ import { CalendarClock } from "lucide-react";
 
 import type { AnalyticsOverviewResponse } from "@cartura/contracts/analytics";
 
-import { getAnalyticsRangeLabel } from "@/features/management/analytics/analytics-range";
+import { getAnalyticsRangeLabel } from "@/features/management/analytics/lib/analytics-range";
 import { formatDateTime } from "@/features/management/shared/lib/admin-utils";
 import { AnalyticsRangeSelector } from "./analytics-range-selector";
 

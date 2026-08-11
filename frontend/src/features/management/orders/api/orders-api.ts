@@ -3,7 +3,6 @@ import "server-only";
 import {
   orderSummarySchema,
   type ListOrdersQuery,
-  type OrderSummary,
   type UpdateOrderStatusRequest,
 } from "@cartura/contracts/orders";
 
@@ -12,8 +11,6 @@ import {
   fetchManagementPaginated,
   type ManagementPaginationInput,
 } from "@/features/management/shared/api/management-api";
-export type ManagementOrder = OrderSummary;
-
 export async function listManagementOrders(
   input: ManagementPaginationInput &
     Pick<ListOrdersQuery, "q" | "status" | "paymentMethod">,

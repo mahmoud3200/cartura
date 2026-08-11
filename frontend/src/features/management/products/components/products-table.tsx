@@ -1,5 +1,6 @@
 "use client";
 
+import type { Product } from "@cartura/contracts/catalog";
 import { StatusBadge } from "@/features/management/shared/components/admin-ui";
 import { ManagementRowActions } from "@/features/management/shared/components/management-row-actions";
 import {
@@ -7,7 +8,6 @@ import {
   ManagementTableCell,
 } from "@/features/management/shared/components/management-table";
 import { formatMoney } from "@/features/management/shared/lib/admin-utils";
-import type { ManagementProduct } from "../api/products-api";
 import { useDeleteManagementProduct } from "../hooks/use-products";
 
 const columns = [
@@ -23,7 +23,7 @@ export function ProductsTable({
   canUpdateProducts = false,
   canDeleteProducts = false,
 }: {
-  products: ManagementProduct[];
+  products: Product[];
   canUpdateProducts?: boolean;
   canDeleteProducts?: boolean;
 }) {

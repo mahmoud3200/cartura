@@ -1,5 +1,6 @@
 "use client";
 
+import type { OrderSummary } from "@cartura/contracts/orders";
 import type { ManageableOrderStatus } from "@cartura/contracts/orders";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -15,7 +16,6 @@ import {
   formatDateTime,
   formatMoney,
 } from "@/features/management/shared/lib/admin-utils";
-import type { ManagementOrder } from "../api/orders-api";
 import { updateOrderStatusAction } from "../actions/update-order-status.action";
 import {
   getNextOrderStatuses,
@@ -36,7 +36,7 @@ export function OrdersTable({
   orders,
   canUpdateOrders,
 }: {
-  orders: ManagementOrder[];
+  orders: OrderSummary[];
   canUpdateOrders: boolean;
 }) {
   return (
@@ -107,7 +107,7 @@ export function OrdersTable({
 }
 
 function formatDeliveryAddress(
-  address: NonNullable<ManagementOrder["address"]>,
+  address: NonNullable<OrderSummary["address"]>,
 ) {
   return [
     address.streetAddress,
@@ -124,7 +124,7 @@ function OrderStatusAction({
   order,
   canUpdate,
 }: {
-  order: ManagementOrder;
+  order: OrderSummary;
   canUpdate: boolean;
 }) {
   const router = useRouter();

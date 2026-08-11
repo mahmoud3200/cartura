@@ -1,10 +1,9 @@
+import type { Product } from "@cartura/contracts/catalog";
 import Link from "next/link";
-
-import type { StorefrontProduct } from "../api/products-api";
-import { CatalogMedia } from "../../shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 
 type ProductCardProps = {
-  product: StorefrontProduct;
+  product: Product;
   index?: number;
 };
 

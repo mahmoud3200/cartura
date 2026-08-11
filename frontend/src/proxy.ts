@@ -1,3 +1,4 @@
+import { authMeResponseSchema } from "@cartura/contracts/auth";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
@@ -49,13 +50,10 @@ async function getAccountRestriction(sessionToken: string, origin: string) {
       return null;
     }
 
-    const payload: unknown = await response.json();
-    const user =
-      payload && typeof payload === "object" && "user" in payload
-        ? payload.user
-        : null;
+    const result = authMeResponseSchema.safeParse(await response.json());
+    const user = result.success ? result.data.user : null;
 
-    if (!user || typeof user !== "object" || !("accountStatus" in user)) {
+    if (!user) {
       return null;
     }
 
@@ -67,10 +65,9 @@ async function getAccountRestriction(sessionToken: string, origin: string) {
       return null;
     }
 
-    const suspendedUntil =
-      "suspendedUntil" in user && typeof user.suspendedUntil === "string"
-        ? new Date(user.suspendedUntil).getTime()
-        : null;
+    const suspendedUntil = user.suspendedUntil
+      ? new Date(user.suspendedUntil).getTime()
+      : null;
 
     return suspendedUntil !== null && suspendedUntil <= Date.now()
       ? "expired"

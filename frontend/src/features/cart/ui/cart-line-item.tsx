@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/shared/ui/button";
-import { CatalogMedia } from "@/features/storefront/shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 
 import { formatCartMoney } from "../lib/cart-formatters";
 
@@ -88,4 +88,3 @@ export function CartLineItem({
     </article>
   );
 }
-

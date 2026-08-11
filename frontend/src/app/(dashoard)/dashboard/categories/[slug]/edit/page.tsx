@@ -1,6 +1,6 @@
 import { getManagementCategoryBySlug } from "@/features/management/categories/api/categories-api";
 import { CategoryForm } from "@/features/management/categories/components/category-form/category-form";
-import { listCurrentManagementPermissionNames } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import { PageHeader } from "@/features/management/shared/components/admin-ui";
 import {
   ManagementBackLink,

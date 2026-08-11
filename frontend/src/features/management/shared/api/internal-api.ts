@@ -1,16 +1,3 @@
-import {
-  paginatedResponseSchema,
-  type PaginationMetadata,
-} from "@cartura/contracts/common";
-import { z } from "zod";
-
-export type PaginationMeta = PaginationMetadata;
-
-export type PaginationInput = {
-  page?: number;
-  limit: number;
-};
-
 export class InternalApiError extends Error {
   constructor(
     message: string,
@@ -20,39 +7,6 @@ export class InternalApiError extends Error {
     super(message);
     this.name = "InternalApiError";
   }
-}
-
-export async function fetchPaginated<T extends z.ZodType>(
-  path: string,
-  itemSchema: T,
-  pagination: number | PaginationInput,
-  options: { searchParams?: Record<string, string> } = {},
-) {
-  const page =
-    typeof pagination === "number" ? 1 : Math.max(1, pagination.page ?? 1);
-  const limit = typeof pagination === "number" ? pagination : pagination.limit;
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-
-  for (const [key, value] of Object.entries(options.searchParams ?? {})) {
-    params.set(key, value);
-  }
-
-  const payload = await fetchInternalJson(`${path}?${params.toString()}`);
-
-  const result = paginatedResponseSchema(itemSchema).safeParse(payload);
-
-  if (!result.success) {
-    throw new InternalApiError(
-      "This page received an unexpected response from the API. Please refresh the page.",
-      500,
-      result.error,
-    );
-  }
-
-  return result.data;
 }
 
 export async function fetchInternalJson(path: string, init?: RequestInit) {

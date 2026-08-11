@@ -1,8 +1,8 @@
 "use client";
 
+import type { Product } from "@cartura/contracts/catalog";
 import { ManagementFieldError } from "@/features/management/shared/components/management-form-field";
 import { ManagementFormSection } from "@/features/management/shared/components/management-form-section";
-import type { ManagementProduct } from "../../api/products-api";
 import { useProductForm } from "../../hooks/use-product-form";
 import { MAX_PRODUCT_IMAGES } from "../../lib/product-form";
 import { ProductDetailsFields } from "./product-details-fields";
@@ -16,7 +16,7 @@ export function ProductForm({
   product,
 }: {
   mode?: "create" | "edit";
-  product?: ManagementProduct;
+  product?: Product;
 }) {
   const form = useProductForm({ mode, product });
 

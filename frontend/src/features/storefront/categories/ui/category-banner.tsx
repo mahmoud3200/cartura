@@ -3,11 +3,10 @@ import { ArrowUpRight } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
 
-import type { StorefrontCategory } from "../api/categories-api";
-import { CatalogMedia } from "../../shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 
 type CategoryBannerProps = {
-  category: StorefrontCategory;
+  category: Category;
   index: number;
   className?: string;
 };
@@ -51,3 +50,4 @@ export function CategoryBanner({
     </Link>
   );
 }
+import type { Category } from "@cartura/contracts/catalog";

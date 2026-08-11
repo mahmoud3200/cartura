@@ -1,9 +1,9 @@
 "use client";
 
+import type { Product } from "@cartura/contracts/catalog";
 import { useCategoryOptions } from "@/features/catalog-selection/hooks/use-category-options";
 import type { CategoryOption } from "@/features/catalog-selection/types";
 import { InfiniteMultiSelect } from "@/shared/ui/infinite-select";
-import type { ManagementProduct } from "../../api/products-api";
 
 export function ProductCategoryPicker({
   selectedIds,
@@ -13,7 +13,7 @@ export function ProductCategoryPicker({
 }: {
   selectedIds: Set<string>;
   inheritedIds: Set<string>;
-  selectedCategories?: ManagementProduct["categories"];
+  selectedCategories?: Product["categories"];
   onToggle: (category: CategoryOption) => void;
 }) {
   const browser = useCategoryOptions({ selectedCategories });

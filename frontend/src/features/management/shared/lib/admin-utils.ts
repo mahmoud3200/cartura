@@ -1,4 +1,4 @@
-import { InternalApiError } from "@/features/management/shared/api/paginated-api";
+import { InternalApiError } from "@/features/management/shared/api/internal-api";
 
 export function getDashboardErrorMessage(error: unknown) {
   if (error instanceof InternalApiError) {

@@ -1,8 +1,8 @@
 "use client";
 
+import type { Permission } from "@cartura/contracts/authorization";
 import { ManagementFormActions } from "@/features/management/shared/components/management-form-actions";
 import { ManagementFormSection } from "@/features/management/shared/components/management-form-section";
-import type { ManagementPermission } from "../../api/roles-api";
 import { useRoleForm } from "../../hooks/use-role-form";
 import { RoleDetailsFields } from "./role-details-fields";
 import { RolePermissionSelector } from "./role-permission-selector";
@@ -13,7 +13,7 @@ export function RoleForm({
   roleId,
   defaultValues,
 }: {
-  permissions: ManagementPermission[];
+  permissions: Permission[];
   mode?: "create" | "edit";
   roleId?: string;
   defaultValues?: {

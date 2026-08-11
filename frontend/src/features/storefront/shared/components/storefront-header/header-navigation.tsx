@@ -1,7 +1,6 @@
+import type { Category } from "@cartura/contracts/catalog";
 import { ChevronDown, Sparkles } from "lucide-react";
 import Link from "next/link";
-
-import type { StorefrontCategory } from "../../../categories/api/categories-api";
 import { storefrontHeaderLinks } from "./header-links";
 
 const visibleCategoryCount = 6;
@@ -10,7 +9,7 @@ const navigationItems = storefrontHeaderLinks.slice(1);
 export function StorefrontHeaderNavigation({
   categories,
 }: {
-  categories: StorefrontCategory[];
+  categories: Category[];
 }) {
   const visibleCategories = categories.slice(0, visibleCategoryCount);
   const hasMoreCategories = categories.length > visibleCategoryCount;

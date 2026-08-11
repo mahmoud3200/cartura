@@ -3,7 +3,6 @@ import { ShieldCheck } from "lucide-react";
 import { ManagementFieldError } from "@/features/management/shared/components/management-form-field";
 import { EmptyState } from "@/features/management/shared/components/admin-ui";
 import { Checkbox } from "@/shared/ui/checkbox";
-import type { ManagementPermission } from "../../api/roles-api";
 import { groupPermissions } from "../../lib/role-form";
 
 export function RolePermissionSelector({
@@ -12,7 +11,7 @@ export function RolePermissionSelector({
   error,
   onToggle,
 }: {
-  permissions: ManagementPermission[];
+  permissions: Permission[];
   selectedIds: Set<string>;
   error?: string;
   onToggle: (permissionId: string) => void;
@@ -57,7 +56,7 @@ function PermissionGroup({
   onToggle,
 }: {
   group: string;
-  permissions: ManagementPermission[];
+  permissions: Permission[];
   selectedIds: Set<string>;
   onToggle: (permissionId: string) => void;
 }) {
@@ -89,3 +88,4 @@ function PermissionGroup({
     </fieldset>
   );
 }
+import type { Permission } from "@cartura/contracts/authorization";

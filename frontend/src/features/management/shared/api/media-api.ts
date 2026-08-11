@@ -1,12 +1,9 @@
 import {
   mediaAssetListResponseSchema,
   type ImageEditSpec,
-  type MediaAssetResponse,
 } from "@cartura/contracts/media";
 
-import { fetchInternalJson } from "./paginated-api";
-
-export type ManagementMediaAsset = MediaAssetResponse;
+import { fetchInternalJson } from "./internal-api";
 
 export async function uploadProductImage({
   file,

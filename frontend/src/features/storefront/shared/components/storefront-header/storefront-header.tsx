@@ -1,20 +1,18 @@
 import type { AuthUser } from "@cartura/contracts/auth";
 import type { Cart } from "@cartura/contracts/cart";
+import type { Category } from "@cartura/contracts/catalog";
 
 import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
 import { getCustomerCart } from "@/features/cart/api/cart-api";
 import { CartStoreHydrator } from "@/shared/components/cart-store-hydrator";
 
-import {
-  listStorefrontCategories,
-  type StorefrontCategory,
-} from "../../../categories/api/categories-api";
+import { listStorefrontCategories } from "../../../categories/api/categories-api";
 import { StorefrontHeaderActions } from "./header-actions";
 import { StorefrontHeaderBrand } from "./header-brand";
 import { StorefrontHeaderNavigation } from "./header-navigation";
 
 type StorefrontHeaderProps = {
-  categories?: StorefrontCategory[];
+  categories?: Category[];
   user?: AuthUser | null;
   cart?: Cart | null;
 };

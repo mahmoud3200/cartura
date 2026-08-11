@@ -1,5 +1,5 @@
+import type { Category } from "@cartura/contracts/catalog";
 import { useState, type FormEvent } from "react";
-import type { ManagementCategory } from "../types";
 import {
   categoryFormSchema,
   categorySlugFromName,
@@ -17,7 +17,7 @@ export function useCategoryForm({
   category,
   mode = "create",
 }: {
-  category?: ManagementCategory;
+  category?: Category;
   mode?: "create" | "edit";
 }) {
   const [fieldErrors, setFieldErrors] = useState<CategoryFieldErrors>({});
@@ -114,7 +114,7 @@ export function useCategoryForm({
 }
 
 function createInitialCategoryForm(
-  category?: ManagementCategory,
+  category?: Category,
 ): CategoryFormState {
   return {
     name: category?.name ?? "",

@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 
 import { logoutAction } from "@/features/auth/actions";
-import { getInitials } from "@/features/account/lib/account-formatters";
+import { getInitials } from "@/shared/lib/person";
 
 const accountLinks = [
   { label: "Account overview", href: "/settings", icon: Settings },

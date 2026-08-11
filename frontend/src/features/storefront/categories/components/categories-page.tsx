@@ -1,14 +1,13 @@
+import type { Category } from "@cartura/contracts/catalog";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-import type { StorefrontCategory } from "../api/categories-api";
 import { CatalogEmptyState } from "../../shared/ui/catalog-empty-state";
 import { CategoryCard } from "../ui/category-card";
 import { CategoryFilters } from "../ui/category-filters";
 import type { CategoryFilterValues } from "../lib/category-filters";
 
 type CategoriesPageProps = {
-  categories: StorefrontCategory[];
+  categories: Category[];
   filters: CategoryFilterValues;
   isUnavailable?: boolean;
 };

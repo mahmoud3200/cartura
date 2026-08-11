@@ -1,7 +1,7 @@
 import type { AuthUser } from "@cartura/contracts/auth";
 import type { ReactNode } from "react";
 
-import { getInitials } from "../lib/account-formatters";
+import { getInitials } from "@/shared/lib/person";
 import { AccountNavigation } from "../ui/account-navigation";
 
 export function AccountShell({

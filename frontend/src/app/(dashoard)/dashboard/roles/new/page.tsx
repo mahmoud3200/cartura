@@ -1,7 +1,5 @@
-import {
-  listCurrentManagementPermissionNames,
-  listManagementPermissions,
-} from "@/features/management/roles/api/roles-api";
+import { listManagementPermissions } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import { RoleForm } from "@/features/management/roles/components/role-form/role-form";
 import { PageHeader } from "@/features/management/shared/components/admin-ui";
 import {

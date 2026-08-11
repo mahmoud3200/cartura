@@ -1,5 +1,6 @@
 "use client";
 
+import type { PaymentWebhookEvent } from "@cartura/contracts/payments";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -11,7 +12,6 @@ import {
   ManagementTableCell,
 } from "@/features/management/shared/components/management-table";
 import { formatDateTime } from "@/features/management/shared/lib/admin-utils";
-import type { ManagementWebhookEvent } from "../api/payments-api";
 import { reprocessWebhookAction } from "../actions/reprocess-webhook.action";
 
 const columns = [
@@ -27,7 +27,7 @@ export function PaymentWebhookEventsTable({
   events,
   canReprocessEvents,
 }: {
-  events: ManagementWebhookEvent[];
+  events: PaymentWebhookEvent[];
   canReprocessEvents: boolean;
 }) {
   return (
@@ -65,7 +65,7 @@ function WebhookEventAction({
   event,
   canReprocess,
 }: {
-  event: ManagementWebhookEvent;
+  event: PaymentWebhookEvent;
   canReprocess: boolean;
 }) {
   const router = useRouter();

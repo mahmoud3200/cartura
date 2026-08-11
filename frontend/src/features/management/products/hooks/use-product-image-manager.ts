@@ -1,7 +1,7 @@
+import type { Product } from "@cartura/contracts/catalog";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
-import type { ManagementProduct } from "../api/products-api";
 import { useImageEditor } from "@/features/management/shared/hooks/use-image-editor";
 import { productImageProfile } from "@/features/management/shared/lib/image-edit";
 import { MAX_PRODUCT_IMAGES } from "../lib/product-form";
@@ -11,7 +11,7 @@ import {
   useUploadProductImage,
 } from "./use-product-images";
 
-type ProductImage = ManagementProduct["images"][number];
+type ProductImage = Product["images"][number];
 type ManageableProductImage = ProductImage & { mediaAssetId: string };
 
 export function useProductImageManager({
@@ -19,7 +19,7 @@ export function useProductImageManager({
   productName,
   onUploadStart,
 }: {
-  product?: ManagementProduct;
+  product?: Product;
   productName: string;
   onUploadStart?: () => void;
 }) {
@@ -176,7 +176,7 @@ export function useProductImageManager({
 }
 
 function getManageableProductImages(
-  product?: ManagementProduct,
+  product?: Product,
 ): ManageableProductImage[] {
   return (product?.images ?? []).filter(
     (image): image is ManageableProductImage => image.mediaAssetId !== null,

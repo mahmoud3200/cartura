@@ -25,11 +25,10 @@ export default async function UsersPage({
 }) {
   const params = await searchParams;
   const query = getManagementQuery(params.q);
-  const accountStatus = getManagementFilter(params.accountStatus) as
-    | "active"
-    | "suspended"
-    | "disabled"
-    | undefined;
+  const accountStatus = userAccountStatusSchema
+    .optional()
+    .catch(undefined)
+    .parse(getManagementFilter(params.accountStatus));
   const permissionNames =
     await requireManagementRouteAccess("/dashboard/users");
 
@@ -85,3 +84,4 @@ export default async function UsersPage({
     </div>
   );
 }
+import { userAccountStatusSchema } from "@cartura/contracts/users";

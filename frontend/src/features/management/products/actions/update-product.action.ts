@@ -2,6 +2,7 @@
 
 import {
   updateProductRequestSchema,
+  type Product,
   type UpdateProductRequest,
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
@@ -12,10 +13,7 @@ import {
   type ManagementActionResult,
 } from "@/features/management/shared/lib/action-result";
 
-import {
-  updateManagementProduct,
-  type ManagementProduct,
-} from "../api/products-api";
+import { updateManagementProduct } from "../api/products-api";
 
 type UpdateProductActionInput = {
   productId: string;
@@ -29,7 +27,7 @@ const updateProductActionSchema = z.object({
 
 export async function updateProductAction(
   input: UpdateProductActionInput,
-): Promise<ManagementActionResult<ManagementProduct>> {
+): Promise<ManagementActionResult<Product>> {
   const parsed = updateProductActionSchema.safeParse(input);
 
   if (!parsed.success) {

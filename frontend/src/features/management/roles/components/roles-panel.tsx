@@ -1,11 +1,11 @@
 "use client";
 
+import type { Role } from "@cartura/contracts/authorization";
 import { ManagementRowActions } from "@/features/management/shared/components/management-row-actions";
 import {
   ManagementTable,
   ManagementTableCell,
 } from "@/features/management/shared/components/management-table";
-import type { ManagementRole } from "../api/roles-api";
 import { useDeleteManagementRole } from "../hooks/use-roles";
 import { RolesSummary } from "../ui/roles-summary";
 
@@ -23,7 +23,7 @@ export function RolesPanel({
   canUpdateRoles,
   canDeleteRoles,
 }: {
-  roles: ManagementRole[];
+  roles: Role[];
   totalRoles: number;
   query?: string;
   canUpdateRoles: boolean;

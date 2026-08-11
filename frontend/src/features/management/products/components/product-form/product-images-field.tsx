@@ -1,3 +1,4 @@
+import type { Product } from "@cartura/contracts/catalog";
 import { ImagePlus, LoaderCircle, X } from "lucide-react";
 import Image from "next/image";
 import { type ChangeEvent } from "react";
@@ -6,7 +7,6 @@ import { ManagementFieldError } from "@/features/management/shared/components/ma
 import { useFileDropzone } from "@/features/management/shared/hooks/use-file-dropzone";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
-import type { ManagementProduct } from "../../api/products-api";
 import { MAX_PRODUCT_IMAGES } from "../../lib/product-form";
 import type { PendingProductImage } from "../../types";
 
@@ -22,7 +22,7 @@ export function ProductImagesField({
   onRemovePending,
 }: {
   existingImages: Array<
-    ManagementProduct["images"][number] & { mediaAssetId: string }
+    Product["images"][number] & { mediaAssetId: string }
   >;
   pendingImages: PendingProductImage[];
   error?: string;

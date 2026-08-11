@@ -3,7 +3,6 @@ import {
   ManagementTableCell,
 } from "@/features/management/shared/components/management-table";
 import { formatDateTime } from "@/features/management/shared/lib/admin-utils";
-import type { ManagementAuditLog } from "../api/audit-api";
 import { AuditActionBadge } from "../ui/audit-action-badge";
 
 const columns = [
@@ -13,7 +12,7 @@ const columns = [
   { label: "Time", className: "text-center" },
 ];
 
-export function AuditLogsTable({ auditLogs }: { auditLogs: ManagementAuditLog[] }) {
+export function AuditLogsTable({ auditLogs }: { auditLogs: AuditLog[] }) {
   return (
     <ManagementTable
       items={auditLogs}
@@ -50,7 +49,7 @@ export function AuditLogsTable({ auditLogs }: { auditLogs: ManagementAuditLog[] 
   );
 }
 
-function getResourceDisplay(log: ManagementAuditLog) {
+function getResourceDisplay(log: AuditLog) {
   if (log.resourceLabel) return log.resourceLabel;
   if (!log.resourceId) return "none";
   return `id ${shortenId(log.resourceId)}`;
@@ -60,3 +59,4 @@ function shortenId(value: string) {
   if (value.length <= 12) return value;
   return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
+import type { AuditLog } from "@cartura/contracts/audit-logs";

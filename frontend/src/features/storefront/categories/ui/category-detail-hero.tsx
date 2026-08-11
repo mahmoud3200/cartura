@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-import type { StorefrontCategory } from "../api/categories-api";
-import { CatalogMedia } from "../../shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 
 type CategoryDetailHeroProps = {
-  category: StorefrontCategory;
+  category: Category;
   productCount: number;
 };
 
@@ -58,3 +57,4 @@ export function CategoryDetailHero({
     </section>
   );
 }
+import type { Category } from "@cartura/contracts/catalog";

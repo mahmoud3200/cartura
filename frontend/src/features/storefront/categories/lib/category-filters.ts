@@ -1,4 +1,4 @@
-import type { StorefrontCategory } from "../api/categories-api";
+import type { Category } from "@cartura/contracts/catalog";
 
 export type CategoryLevel = "all" | "main" | "subcategories";
 
@@ -25,7 +25,7 @@ export function parseCategoryFilters(
 }
 
 export function filterCategoriesByLevel(
-  categories: StorefrontCategory[],
+  categories: Category[],
   level: CategoryLevel,
 ) {
   if (level === "main") {

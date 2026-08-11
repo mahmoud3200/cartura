@@ -14,7 +14,7 @@ import { Button } from "@/shared/ui/button";
 
 import { useImagePanZoom } from "../../hooks/use-image-pan-zoom";
 import type { ProductGalleryController } from "../../hooks/use-product-gallery";
-import { CatalogMedia } from "../../../shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 
 type ProductImageViewerProps = {
   productName: string;

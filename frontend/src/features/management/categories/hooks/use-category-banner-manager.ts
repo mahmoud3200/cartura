@@ -1,7 +1,7 @@
+import type { MediaAssetResponse } from "@cartura/contracts/media";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
-import type { ManagementMediaAsset } from "@/features/management/shared/api/media-api";
 import { useImageEditor } from "@/features/management/shared/hooks/use-image-editor";
 import { categoryBannerProfile } from "@/features/management/shared/lib/image-edit";
 import {
@@ -16,7 +16,7 @@ export function useCategoryBannerManager({
 } = {}) {
   const upload = useUploadCategoryBanner();
   const remove = useDeletePendingCategoryBanner();
-  const [asset, setAsset] = useState<ManagementMediaAsset | null>(null);
+  const [asset, setAsset] = useState<MediaAssetResponse | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef(previewUrl);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ManagementCategory } from "../../types";
+import type { Category } from "@cartura/contracts/catalog";
 import { useCategoryForm } from "../../hooks/use-category-form";
 import { CategoryDetailsFields } from "./category-details-fields";
 import { ManagementFormActions } from "@/features/management/shared/components/management-form-actions";
@@ -15,7 +15,7 @@ export function CategoryForm({
   category,
 }: {
   mode?: "create" | "edit";
-  category?: ManagementCategory;
+  category?: Category;
 }) {
   const form = useCategoryForm({ category, mode });
 

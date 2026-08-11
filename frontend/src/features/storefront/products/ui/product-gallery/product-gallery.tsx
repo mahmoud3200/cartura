@@ -7,7 +7,7 @@ import type { ProductImage } from "@cartura/contracts/catalog";
 import { cn } from "@/shared/lib/utils";
 
 import { useProductGallery } from "../../hooks/use-product-gallery";
-import { CatalogMedia } from "../../../shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 import { ProductImageViewer } from "./product-image-viewer";
 
 type ProductGalleryProps = {

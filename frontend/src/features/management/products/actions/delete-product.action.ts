@@ -1,5 +1,6 @@
 "use server";
 
+import type { Product } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
 import { z } from "zod";
 
@@ -8,14 +9,11 @@ import {
   type ManagementActionResult,
 } from "@/features/management/shared/lib/action-result";
 
-import {
-  deleteManagementProduct,
-  type ManagementProduct,
-} from "../api/products-api";
+import { deleteManagementProduct } from "../api/products-api";
 
 export async function deleteProductAction(
   productId: string,
-): Promise<ManagementActionResult<ManagementProduct>> {
+): Promise<ManagementActionResult<Product>> {
   const parsed = z.uuid().safeParse(productId);
 
   if (!parsed.success) {

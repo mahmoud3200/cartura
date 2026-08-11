@@ -1,10 +1,6 @@
+import type { PaginationResponse, Product } from "@cartura/contracts/catalog";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-
-import type {
-  StorefrontPagination,
-  StorefrontProduct,
-} from "../api/products-api";
 import { ProductCard } from "../ui/product-card";
 import { ProductFilters } from "../ui/product-filters";
 import type { ProductFilterValues } from "../lib/product-filters";
@@ -12,8 +8,8 @@ import { CatalogEmptyState } from "../../shared/ui/catalog-empty-state";
 import { CatalogPagination } from "../../shared/ui/catalog-pagination";
 
 type ProductsPageProps = {
-  products: StorefrontProduct[];
-  pagination?: StorefrontPagination;
+  products: Product[];
+  pagination?: PaginationResponse;
   filters: ProductFilterValues;
   isUnavailable?: boolean;
 };

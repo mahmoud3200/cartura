@@ -2,6 +2,7 @@
 
 import {
   createCategoryRequestSchema,
+  type Category,
   type CreateCategoryRequest,
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
@@ -12,11 +13,10 @@ import {
 } from "@/features/management/shared/lib/action-result";
 
 import { createManagementCategory } from "../api/categories-api";
-import type { ManagementCategory } from "../types";
 
 export async function createCategoryAction(
   input: CreateCategoryRequest,
-): Promise<ManagementActionResult<ManagementCategory>> {
+): Promise<ManagementActionResult<Category>> {
   const parsed = createCategoryRequestSchema.safeParse(input);
 
   if (!parsed.success) {

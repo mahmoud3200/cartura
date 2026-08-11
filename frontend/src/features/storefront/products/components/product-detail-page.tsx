@@ -1,15 +1,15 @@
+import type { AddressResponse } from "@cartura/contracts/addresses";
+import type { Product } from "@cartura/contracts/catalog";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { ProductPurchaseActions } from "@/features/cart/components/product-purchase-actions";
-import type { StorefrontProduct } from "../api/products-api";
 import { ProductCard, formatPrice } from "../ui/product-card";
 import { ProductGallery } from "../ui/product-gallery/product-gallery";
-import type { AddressResponse } from "@cartura/contracts/addresses";
 
 type ProductDetailPageProps = {
-  product: StorefrontProduct;
-  relatedProducts: StorefrontProduct[];
+  product: Product;
+  relatedProducts: Product[];
   isAuthenticated: boolean;
   addresses?: AddressResponse[];
 };

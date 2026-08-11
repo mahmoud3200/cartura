@@ -6,7 +6,7 @@ import { connection } from "next/server";
 import { DashboardShellLoadingSkeleton } from "@/features/management/shared/components/dashboard-loading-skeleton";
 import { ManagementDashboardShell } from "@/features/management/shared/components/management-dashboard-shell";
 import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
-import { listCurrentManagementPermissionNames } from "@/features/management/roles/api/roles-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
 import { hasManagementAccess } from "@/features/management/shared/lib/management-access";
 
 export default function DashboardLayout({

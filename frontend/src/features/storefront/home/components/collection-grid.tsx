@@ -1,18 +1,16 @@
+import type { Category } from "@cartura/contracts/catalog";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { cacheLife, cacheTag } from "next/cache";
 
-import {
-  listStorefrontCategories,
-  type StorefrontCategory,
-} from "../../categories/api/categories-api";
+import { listStorefrontCategories } from "../../categories/api/categories-api";
 import { CategoryBanner } from "../../categories/ui/category-banner";
 import { CatalogEmptyState } from "../../shared/ui/catalog-empty-state";
 import { ArrowRight } from "lucide-react";
 import { getCollectionGridLayout } from "../lib/collection-grid-layout";
 
 type CollectionGridProps = {
-  categories: StorefrontCategory[];
+  categories: Category[];
   isUnavailable?: boolean;
 };
 

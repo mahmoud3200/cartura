@@ -2,6 +2,7 @@
 
 import {
   updateCategoryRequestSchema,
+  type Category,
   type UpdateCategoryRequest,
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
@@ -13,7 +14,6 @@ import {
 } from "@/features/management/shared/lib/action-result";
 
 import { updateManagementCategory } from "../api/categories-api";
-import type { ManagementCategory } from "../types";
 
 const updateCategoryActionSchema = z.object({
   categoryId: z.uuid(),
@@ -27,7 +27,7 @@ type UpdateCategoryActionInput = {
 
 export async function updateCategoryAction(
   input: UpdateCategoryActionInput,
-): Promise<ManagementActionResult<ManagementCategory>> {
+): Promise<ManagementActionResult<Category>> {
   const parsed = updateCategoryActionSchema.safeParse(input);
 
   if (!parsed.success) {

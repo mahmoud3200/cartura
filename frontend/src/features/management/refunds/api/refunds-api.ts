@@ -4,7 +4,6 @@ import {
   refundSchema,
   type ConfirmRefundItemReceivedRequest,
   type ListRefundsQuery,
-  type Refund,
   type ReviewRefundRequest,
 } from "@cartura/contracts/refunds";
 
@@ -13,8 +12,6 @@ import {
   fetchManagementData,
   type ManagementPaginationInput,
 } from "@/features/management/shared/api/management-api";
-export type ManagementRefund = Refund;
-
 export async function listManagementRefunds(
   input: ManagementPaginationInput &
     Pick<ListRefundsQuery, "status" | "paymentId" | "orderId">,

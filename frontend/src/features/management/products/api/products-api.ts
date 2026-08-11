@@ -1,7 +1,8 @@
+import "server-only";
+
 import type {
   CreateProductRequest,
   ListProductsQuery,
-  Product,
   UpdateProductRequest,
 } from "@cartura/contracts/catalog";
 import { productSchema } from "@cartura/contracts/catalog";
@@ -11,8 +12,6 @@ import {
   fetchManagementPaginated,
   type ManagementPaginationInput,
 } from "@/features/management/shared/api/management-api";
-export type ManagementProduct = Product;
-
 export async function listManagementProducts(
   input: ManagementPaginationInput &
     Pick<ListProductsQuery, "q" | "inStock">,
@@ -68,4 +67,3 @@ export async function deleteManagementProduct(productId: string) {
     },
   );
 }
-import "server-only";

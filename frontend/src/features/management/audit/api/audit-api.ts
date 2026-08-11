@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   auditLogSchema,
-  type AuditLog,
   type ListAuditLogsQuery,
 } from "@cartura/contracts/audit-logs";
 
@@ -10,8 +9,6 @@ import {
   fetchManagementPaginated,
   type ManagementPaginationInput,
 } from "@/features/management/shared/api/management-api";
-export type ManagementAuditLog = AuditLog;
-
 export async function listManagementAuditLogs(
   input: ManagementPaginationInput &
     Pick<ListAuditLogsQuery, "q" | "action" | "resourceType" | "actorType">,

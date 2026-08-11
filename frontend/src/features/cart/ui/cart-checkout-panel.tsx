@@ -15,7 +15,10 @@ import {
   SelectValue,
 } from "@/shared/ui/select";
 
-import { formatCartMoney } from "../lib/cart-formatters";
+import {
+  formatCartAddressOption,
+  formatCartMoney,
+} from "../lib/cart-formatters";
 
 type CartCheckoutPanelProps = {
   subtotal: number;
@@ -85,7 +88,7 @@ export function CartCheckoutPanel({
               <SelectValue>
                 {() =>
                   selectedAddress
-                    ? formatAddressOption(selectedAddress)
+                    ? formatCartAddressOption(selectedAddress)
                     : "Choose a delivery address"
                 }
               </SelectValue>
@@ -96,7 +99,7 @@ export function CartCheckoutPanel({
                   <SelectList>
                     {addresses.map((address) => (
                       <SelectItem key={address.id} value={address.id}>
-                        {formatAddressOption(address)}
+                        {formatCartAddressOption(address)}
                       </SelectItem>
                     ))}
                   </SelectList>
@@ -195,8 +198,4 @@ export function CartCheckoutPanel({
       </p>
     </aside>
   );
-}
-
-function formatAddressOption(address: AddressResponse) {
-  return `${address.addressName}${address.isDefault ? " (default)" : ""} - ${address.area}, ${address.city}`;
 }

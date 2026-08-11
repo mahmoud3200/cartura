@@ -1,4 +1,4 @@
-import type { StorefrontProductListInput } from "../api/products-api";
+import type { ListProductsQuery } from "@cartura/contracts/catalog";
 
 export type ProductFilterValues = {
   q?: string;
@@ -32,7 +32,7 @@ export function parseProductFilters(
 export function toProductListInput(
   filters: ProductFilterValues,
   options: { limit: number },
-): StorefrontProductListInput {
+): Partial<ListProductsQuery> {
   return {
     page: filters.page,
     limit: options.limit,

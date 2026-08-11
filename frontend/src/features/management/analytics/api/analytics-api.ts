@@ -1,3 +1,5 @@
+import "server-only";
+
 import {
   analyticsOverviewResponseSchema,
   type AnalyticsOverviewQuery,
@@ -15,5 +17,3 @@ export async function getAnalyticsOverview(
     analyticsOverviewResponseSchema,
   );
 }
-
-import "server-only";

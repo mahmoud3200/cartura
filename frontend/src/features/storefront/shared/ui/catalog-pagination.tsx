@@ -1,10 +1,9 @@
+import type { PaginationResponse } from "@cartura/contracts/catalog";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-import type { StorefrontPagination } from "../../products/api/products-api";
-
 type CatalogPaginationProps = {
-  pagination?: StorefrontPagination;
+  pagination?: PaginationResponse;
   pathname: string;
   params: Record<string, string | number | boolean | undefined>;
 };

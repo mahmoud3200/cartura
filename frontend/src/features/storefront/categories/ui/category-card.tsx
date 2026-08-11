@@ -1,10 +1,9 @@
 import Link from "next/link";
 
-import type { StorefrontCategory } from "../api/categories-api";
-import { CatalogMedia } from "../../shared/ui/catalog-media";
+import { CatalogMedia } from "@/shared/ui/catalog-media";
 
 type CategoryCardProps = {
-  category: StorefrontCategory;
+  category: Category;
   index?: number;
 };
 
@@ -38,3 +37,4 @@ export function CategoryCard({ category, index = 0 }: CategoryCardProps) {
     </Link>
   );
 }
+import type { Category } from "@cartura/contracts/catalog";

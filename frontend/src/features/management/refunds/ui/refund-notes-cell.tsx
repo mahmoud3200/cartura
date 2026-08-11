@@ -1,6 +1,6 @@
-import type { ManagementRefund } from "../api/refunds-api";
+import type { Refund } from "@cartura/contracts/refunds";
 
-export function RefundNotesCell({ refund }: { refund: ManagementRefund }) {
+export function RefundNotesCell({ refund }: { refund: Refund }) {
   const notes = [
     refund.customerNote
       ? { label: "Customer", value: refund.customerNote, destructive: false }

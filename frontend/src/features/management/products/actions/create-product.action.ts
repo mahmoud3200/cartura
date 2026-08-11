@@ -3,6 +3,7 @@
 import {
   createProductRequestSchema,
   type CreateProductRequest,
+  type Product,
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
 
@@ -11,14 +12,11 @@ import {
   type ManagementActionResult,
 } from "@/features/management/shared/lib/action-result";
 
-import {
-  createManagementProduct,
-  type ManagementProduct,
-} from "../api/products-api";
+import { createManagementProduct } from "../api/products-api";
 
 export async function createProductAction(
   input: CreateProductRequest,
-): Promise<ManagementActionResult<ManagementProduct>> {
+): Promise<ManagementActionResult<Product>> {
   const parsed = createProductRequestSchema.safeParse(input);
 
   if (!parsed.success) {
