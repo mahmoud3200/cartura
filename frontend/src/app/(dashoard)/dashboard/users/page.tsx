@@ -8,11 +8,13 @@ import {
   type ManagementSearchParams,
 } from "@/features/management/shared/lib/management-search-params";
 import {
+  getManagementUser,
   listManagementUserRoleOptions,
   listManagementUsers,
 } from "@/features/management/users/api/users-api";
 import { UsersTable } from "@/features/management/users/components/users-table";
 import { requireManagementRouteAccess } from "@/features/management/shared/lib/require-management-access";
+import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
 
 const USERS_PAGE_SIZE = 30;
 
@@ -31,16 +33,20 @@ export default async function UsersPage({
   const permissionNames =
     await requireManagementRouteAccess("/dashboard/users");
 
-  const users = await listManagementUsers({
-    page: getManagementPage(params.page),
-    limit: USERS_PAGE_SIZE,
-    q: query,
-    accountStatus,
-  });
   const canUpdateRole = permissionNames.includes("users.role.update");
-  const roleOptions = canUpdateRole
-    ? await listManagementUserRoleOptions()
-    : [];
+  const authUser = await getCurrentAuthUser();
+  const [users, roleOptions, actingUser] = await Promise.all([
+    listManagementUsers({
+      page: getManagementPage(params.page),
+      limit: USERS_PAGE_SIZE,
+      q: query,
+      accountStatus,
+    }),
+    canUpdateRole ? listManagementUserRoleOptions() : Promise.resolve([]),
+    authUser && canUpdateRole
+      ? getManagementUser(authUser.id)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -68,6 +74,8 @@ export default async function UsersPage({
         users={users.data}
         canUpdateStatus={permissionNames.includes("users.status.update")}
         canUpdateRole={canUpdateRole}
+        actingUserId={actingUser?.id ?? ""}
+        actingRoleName={actingUser?.role.name ?? ""}
         roleOptions={roleOptions}
         emptyLabel={
           query ? "No users match this search." : "No users are available yet."

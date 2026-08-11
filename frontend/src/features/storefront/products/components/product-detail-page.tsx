@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { ProductPurchaseActions } from "@/features/cart/components/product-purchase-actions";
 import type { StorefrontProduct } from "../api/products-api";
 import { ProductCard, formatPrice } from "../ui/product-card";
-import { CatalogMedia } from "../../shared/ui/catalog-media";
+import { ProductGallery } from "../ui/product-gallery/product-gallery";
 import type { AddressResponse } from "@cartura/contracts/addresses";
 
 type ProductDetailPageProps = {
@@ -20,8 +20,6 @@ export function ProductDetailPage({
   isAuthenticated,
   addresses,
 }: ProductDetailPageProps) {
-  const primaryImage = product.images[0];
-  const secondaryImages = product.images.slice(1, 5);
   const category = product.categories[0];
 
   return (
@@ -37,25 +35,7 @@ export function ProductDetailPage({
           </Link>
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <CatalogMedia
-                src={primaryImage?.imageUrl}
-                alt={primaryImage?.altText ?? product.name}
-                priority
-                className="aspect-[4/5] sm:col-span-2"
-                sizes="(min-width: 1024px) 55vw, 100vw"
-              />
-              {secondaryImages.map((image, index) => (
-                <CatalogMedia
-                  key={image.mediaAssetId}
-                  src={image.imageUrl}
-                  alt={image.altText ?? product.name}
-                  fallbackIndex={index + 1}
-                  className="aspect-[4/3]"
-                  sizes="(min-width: 1024px) 27vw, 50vw"
-                />
-              ))}
-            </div>
+            <ProductGallery productName={product.name} images={product.images} />
 
             <div className="lg:sticky lg:top-24">
               <div className="rounded-lg border border-border bg-card p-6 sm:p-8">
@@ -67,7 +47,7 @@ export function ProductDetailPage({
                     {category.name}
                   </Link>
                 ) : null}
-                <h1 className="mt-3 text-balance text-5xl font-semibold tracking-[-0.05em] sm:text-6xl">
+                <h1 className="mt-3 text-balance text-5xl font-semibold tracking-tighter sm:text-6xl">
                   {product.name}
                 </h1>
                 <p className="mt-5 font-mono text-xl">
@@ -85,7 +65,17 @@ export function ProductDetailPage({
                   </div>
                   <div className="flex justify-between gap-4 border-t border-border pt-4">
                     <span className="text-muted-foreground">Availability</span>
-                    <span>{product.stockQuantity > 0 ? "In stock" : "Out of stock"}</span>
+                    <span
+                      className={
+                        product.stockQuantity > 0
+                          ? "font-medium text-foreground"
+                          : "font-medium text-destructive"
+                      }
+                    >
+                      {product.stockQuantity > 0
+                        ? `${product.stockQuantity} in stock`
+                        : "Out of stock"}
+                    </span>
                   </div>
                 </div>
 

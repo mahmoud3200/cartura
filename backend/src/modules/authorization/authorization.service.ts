@@ -24,6 +24,11 @@ import {
   cacheService,
   type CacheService,
 } from "../../infrastructure/cache/index.js";
+import { getUserRoleUpdateDenial } from "./authorization.policy.js";
+import {
+  cantChangeOwnRoleError,
+  cantChangeProtectedUserRoleError,
+} from "./authorization.errors.js";
 
 const authorizationCacheKeys = {
   userPermissions: (userId: string) => `authorization:user:${userId}:permissions`,
@@ -219,14 +224,36 @@ export class AuthorizationService {
 
   async updateUserRole(input: UpdateUserRoleRequest & {
     userId: string;
-    assignedBy?: string | undefined;
+    actingUserId: string;
     audit?: AuditContext | undefined;
   }) {
     await this.assertRoleCanBeAssigned(input.roleId);
-    const user = await this.repository.findUserRole(input.userId);
+    const [user, actingUser] = await Promise.all([
+      this.repository.findUserRole(input.userId),
+      this.repository.findUserRole(input.actingUserId),
+    ]);
 
     if (!user) {
       throw notFoundError("USER_NOT_FOUND", "User not found");
+    }
+
+    if (!actingUser) {
+      throw notFoundError("ACTING_USER_NOT_FOUND", "Acting user not found");
+    }
+
+    const denial = getUserRoleUpdateDenial({
+      actingUserId: input.actingUserId,
+      actingRoleName: actingUser.assignedRole?.role.name ?? null,
+      targetUserId: input.userId,
+      targetRoleName: user.assignedRole?.role.name ?? null,
+    });
+
+    if (denial === "self_role_change") {
+      throw cantChangeOwnRoleError();
+    }
+
+    if (denial === "protected_role_change") {
+      throw cantChangeProtectedUserRoleError();
     }
 
     if (user.assignedRole?.role.name === SYSTEM_ROLES.SUPER_ADMIN) {
@@ -242,7 +269,11 @@ export class AuthorizationService {
     }
 
     const assignment = await this.repository.replaceUserRole(
-      input,
+      {
+        userId: input.userId,
+        roleId: input.roleId,
+        assignedBy: input.actingUserId,
+      },
       input.audit ? {
         ...input.audit,
         action: "user_role.update",
@@ -251,7 +282,7 @@ export class AuthorizationService {
         metadata: {
           previousRoleId: user.assignedRole?.roleId ?? null,
           nextRoleId: input.roleId,
-          assignedBy: input.assignedBy ?? null,
+          assignedBy: input.actingUserId,
         },
       } : undefined,
     );

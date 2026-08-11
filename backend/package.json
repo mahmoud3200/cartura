@@ -8,7 +8,7 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "prisma generate && tsc --noEmit",
-    "test": "tsx --test src/infrastructure/storage/cloudinary-storage.test.ts src/infrastructure/cache/cache.service.test.ts src/modules/catalog/products/products.repository.test.ts src/modules/analytics/analytics.utils.test.ts src/modules/orders/orders.policy.test.ts src/modules/payments/payments.paymob.test.ts src/modules/refunds/refunds.policy.test.ts",
+    "test": "tsx --test src/infrastructure/storage/cloudinary-storage.test.ts src/infrastructure/cache/cache.service.test.ts src/modules/authorization/authorization.policy.test.ts src/modules/catalog/products/products.repository.test.ts src/modules/analytics/analytics.utils.test.ts src/modules/orders/orders.policy.test.ts src/modules/payments/payments.paymob.test.ts src/modules/refunds/refunds.policy.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

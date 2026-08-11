@@ -5,6 +5,7 @@ import {
   mapPaginatedResult,
 } from "../../shared/pagination/pagination.js";
 import {
+  getAuthenticatedUserId,
   getOptionalAuthenticatedUserId,
   getPathParam,
 } from "../../shared/utils/request.utils.js";
@@ -136,12 +137,11 @@ export class AuthorizationController {
   updateUserRole: RequestHandler = async (req, res, next) => {
     try {
       const body = parseInput(updateUserRoleSchema, req.body);
-      const assignedBy = getOptionalAuthenticatedUserId(req);
 
       await authorizationService.updateUserRole({
         userId: getPathParam(req.params.userId),
         roleId: body.roleId,
-        assignedBy,
+        actingUserId: getAuthenticatedUserId(req),
         audit: getAuditContext(req),
       });
 

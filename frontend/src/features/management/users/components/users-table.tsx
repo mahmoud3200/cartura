@@ -17,6 +17,7 @@ import {
 } from "@/features/management/shared/components/management-table";
 import { formatDateTime } from "@/features/management/shared/lib/admin-utils";
 import { updateUserStatusAction } from "../actions/update-user-status.action";
+import { canUpdateUserRole } from "../lib/can-update-user-role";
 import { UserRoleManager } from "./user-role-manager";
 
 type UsersTableUser = User;
@@ -34,12 +35,16 @@ export function UsersTable({
   emptyLabel,
   canUpdateStatus,
   canUpdateRole,
+  actingUserId,
+  actingRoleName,
   roleOptions,
 }: {
   users: UsersTableUser[];
   emptyLabel: string;
   canUpdateStatus: boolean;
   canUpdateRole: boolean;
+  actingUserId: string;
+  actingRoleName: string;
   roleOptions: UserRoleOption[];
 }) {
   return (
@@ -65,7 +70,13 @@ export function UsersTable({
             {formatDateTime(user.createdAt)}
           </p>
           <div className="flex items-center justify-end gap-2">
-            {canUpdateRole ? (
+            {canUpdateUserRole({
+              hasPermission: canUpdateRole,
+              actingUserId,
+              actingRoleName,
+              targetUserId: user.id,
+              targetRoleName: user.role.name,
+            }) ? (
               <UserRoleManager
                 key={user.role.id}
                 userId={user.id}

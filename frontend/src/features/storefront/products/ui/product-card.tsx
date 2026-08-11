@@ -10,34 +10,55 @@ type ProductCardProps = {
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const primaryImage = product.images[0];
-  const category = product.categories[0]?.name ?? "Catalog";
 
   return (
     <Link
       href={`/products/${product.slug}`}
-      className="group block overflow-hidden rounded-2xl border border-border bg-card transition duration-300 hover:-translate-y-1 hover:border-foreground/20 hover:shadow-[0_22px_60px_color-mix(in_oklch,var(--foreground)_9%,transparent)] active:translate-y-px"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card transition-[transform,border-color,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:border-foreground/20 hover:shadow-[0_22px_60px_color-mix(in_oklch,var(--foreground)_9%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-px"
     >
       <CatalogMedia
         src={primaryImage?.imageUrl}
         alt={primaryImage?.altText ?? product.name}
         fallbackIndex={index}
-        className="aspect-[4/5] rounded-none"
+        className="aspect-square rounded-none"
+        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
       />
-      <div className="p-4">
-        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <p>{category}</p>
-          {product.stockQuantity === 0 ? (
-            <p className="text-destructive">Out of stock</p>
-          ) : null}
-        </div>
-        <div className="mt-2 flex items-start justify-between gap-4">
-          <h3 className="font-semibold tracking-[-0.025em] transition group-hover:text-primary">
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="line-clamp-2 min-w-0 text-lg font-semibold leading-tight tracking-tight transition-colors group-hover:text-primary">
             {product.name}
           </h3>
-          <p className="shrink-0 font-mono text-sm font-medium">
-            {formatPrice(product.price)}
-          </p>
+          <div className="shrink-0 text-right">
+            <p className="font-mono text-sm font-medium tabular-nums">
+              {formatPrice(product.price)}
+            </p>
+            {product.stockQuantity === 0 ? (
+              <p className="mt-1 text-[11px] font-medium text-destructive">
+                Out of stock
+              </p>
+            ) : null}
+          </div>
         </div>
+
+        <ul
+          aria-label="Product categories"
+          className="mt-auto flex flex-wrap gap-1.5 pt-5"
+        >
+          {product.categories.length > 0 ? (
+            product.categories.map((category) => (
+              <li
+                key={category.id}
+                className="rounded-md border border-foreground/10 bg-muted px-2.5 py-1.5 text-xs font-medium leading-none text-muted-foreground"
+              >
+                {category.name}
+              </li>
+            ))
+          ) : (
+            <li className="rounded-md border border-foreground/10 bg-muted px-2.5 py-1.5 text-xs font-medium leading-none text-muted-foreground">
+              Catalog
+            </li>
+          )}
+        </ul>
       </div>
     </Link>
   );

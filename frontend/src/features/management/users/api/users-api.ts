@@ -38,6 +38,13 @@ export async function listManagementUsers(
   );
 }
 
+export function getManagementUser(userId: string) {
+  return fetchManagementData(
+    `/api/v1/management/users/${encodeURIComponent(userId)}`,
+    userSchema,
+  );
+}
+
 export function listManagementUserRoleOptions() {
   return fetchManagementData(
     "/api/v1/management/authorization/users/role-options",
