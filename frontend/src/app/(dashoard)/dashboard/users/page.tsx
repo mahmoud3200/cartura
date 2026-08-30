@@ -74,7 +74,7 @@ export default async function UsersPage({
         canUpdateStatus={permissionNames.includes("users.status.update")}
         canUpdateRole={canUpdateRole}
         actingUserId={actingUser?.id ?? ""}
-        actingRoleName={actingUser?.role.name ?? ""}
+        actingRoleName={actingUser?.role?.name ?? ""}
         roleOptions={roleOptions}
         emptyLabel={
           query ? "No users match this search." : "No users are available yet."

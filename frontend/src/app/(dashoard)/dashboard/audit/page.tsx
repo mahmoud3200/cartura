@@ -1,3 +1,8 @@
+import {
+  auditActorTypeSchema,
+  auditResourceTypeSchema,
+} from "@cartura/contracts/audit-logs";
+
 import { listManagementAuditLogs } from "@/features/management/audit/api/audit-api";
 import { AuditLogFilters } from "@/features/management/audit/components/audit-log-filters";
 import { AuditLogsTable } from "@/features/management/audit/components/audit-logs-table";
@@ -22,12 +27,20 @@ export default async function AuditPage({
 }) {
   const params = await searchParams;
   const query = getManagementQuery(params.q);
-  const resourceType = getManagementFilter(params.resourceType);
+  const resourceTypeResult = auditResourceTypeSchema.safeParse(
+    getManagementFilter(params.resourceType),
+  );
+  const resourceType = resourceTypeResult.success
+    ? resourceTypeResult.data
+    : undefined;
   const requestedAction = getManagementFilter(params.action);
   const action = isAuditActionForResource(resourceType, requestedAction)
     ? requestedAction
     : undefined;
-  const actorType = getManagementFilter(params.actorType);
+  const actorTypeResult = auditActorTypeSchema.safeParse(
+    getManagementFilter(params.actorType),
+  );
+  const actorType = actorTypeResult.success ? actorTypeResult.data : undefined;
   await requireManagementRouteAccess("/dashboard/audit");
 
   const auditLogs = await listManagementAuditLogs({

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { paginationQuerySchema } from "../common/index.js";
+import { paginatedQuerySchema } from "../common/index.js";
 
 const booleanQuerySchema = z.preprocess((value) => {
   if (value === "true") return true;
@@ -13,18 +13,28 @@ export const userAccountStatusSchema = z.enum([
   "disabled",
 ]);
 
-export const listUsersQuerySchema = paginationQuerySchema.and(z.object({
+export const listUsersQuerySchema = paginatedQuerySchema({
   q: z.string().trim().min(1).max(120).optional(),
   accountStatus: userAccountStatusSchema.optional(),
   emailVerified: booleanQuerySchema.optional(),
-}));
+});
 
-export const updateUserStatusRequestSchema = z.object({
-  accountStatus: userAccountStatusSchema,
-  statusReason: z.string().trim().min(1).max(500).nullable().optional(),
-  suspendedUntil: z.iso.datetime().nullable().optional(),
-}).superRefine((input, ctx) => {
+export const updateUserStatusRequestSchema = z
+  .object({
+    accountStatus: userAccountStatusSchema,
+    statusReason: z.string().trim().min(1).max(500).nullable().optional(),
+    suspendedUntil: z.iso.datetime().nullable().optional(),
+  })
+  .strict()
+  .superRefine((input, ctx) => {
   if (input.accountStatus === "active") {
+    if (input.statusReason) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["statusReason"],
+        message: "Active accounts cannot have a status reason",
+      });
+    }
     if (input.suspendedUntil) {
       ctx.addIssue({
         code: "custom",
@@ -72,18 +82,22 @@ export const updateUserStatusRequestSchema = z.object({
       message: "Suspension expiry must be in the future",
     });
   }
-});
+  });
 
 export const userRoleSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   description: z.string().nullable(),
   isSystemRole: z.boolean(),
-  assignedAt: z.string(),
+  assignedAt: z.iso.datetime(),
 });
 
+export const userIdParamsSchema = z.object({
+  userId: z.uuid(),
+}).strict();
+
 export const userSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   firstName: z.string(),
   lastName: z.string(),
@@ -91,15 +105,16 @@ export const userSchema = z.object({
   emailVerified: z.boolean(),
   image: z.string().nullable(),
   twoFactorEnabled: z.boolean(),
-  accountStatus: z.string(),
+  accountStatus: userAccountStatusSchema,
   accountStatusReason: z.string().nullable(),
-  suspendedUntil: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  role: userRoleSchema,
+  suspendedUntil: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  role: userRoleSchema.nullable(),
 });
 
 export type UserAccountStatus = z.infer<typeof userAccountStatusSchema>;
+export type UserIdParams = z.infer<typeof userIdParamsSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type UpdateUserStatusRequest = z.infer<
   typeof updateUserStatusRequestSchema

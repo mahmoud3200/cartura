@@ -1,7 +1,10 @@
-import type { Refund } from "@cartura/contracts/refunds";
+import type { CustomerRefund } from "@cartura/contracts/refunds";
 import { describe, expect, it } from "vitest";
 
-import { getOrderReturnPanelState } from "./order-return";
+import {
+  getCustomerRefundStatusMessage,
+  getOrderReturnPanelState,
+} from "./order-return";
 
 const now = new Date("2026-08-10T12:00:00.000Z");
 
@@ -71,11 +74,17 @@ describe("getOrderReturnPanelState", () => {
       message: "The 14-day return window for this order has ended.",
     });
   });
+
+  it("tells customers not to submit another request after execution fails", () => {
+    expect(getCustomerRefundStatusMessage("failed")).toContain(
+      "do not need to submit another request",
+    );
+  });
 });
 
 function refundWithStatus(
-  status: Refund["status"],
-  overrides: Partial<Refund> = {},
+  status: CustomerRefund["status"],
+  overrides: Partial<CustomerRefund> = {},
 ) {
-  return { status, ...overrides } as Refund;
+  return { status, ...overrides } as CustomerRefund;
 }

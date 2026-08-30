@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   mailService,
   type MailService,
@@ -34,7 +36,13 @@ export class NotificationDeliveryService {
     let processed = 0;
 
     for (const delivery of deliveries) {
-      const claimed = await this.repository.claim(delivery.id, staleBefore);
+      const claimToken = randomUUID();
+      const claimed = await this.repository.claim({
+        deliveryId: delivery.id,
+        availableAt: now,
+        staleBefore,
+        claimToken,
+      });
 
       if (!claimed) {
         continue;
@@ -50,17 +58,21 @@ export class NotificationDeliveryService {
           ...createNotificationEmail(delivery.notification),
         });
 
-        await this.repository.markSent(
+        const markedSent = await this.repository.markSent(
           delivery.id,
+          claimToken,
           result.messageId ?? null,
           new Date(),
         );
-        processed += 1;
+        if (markedSent) {
+          processed += 1;
+        }
       } catch (error) {
         const attempts = delivery.attempts + 1;
 
         await this.repository.recordFailure(
           delivery.id,
+          claimToken,
           attempts >= MAX_DELIVERY_ATTEMPTS ? "failed" : "pending",
           nextDeliveryAttemptAt(attempts, new Date()),
           getDeliveryErrorMessage(error),

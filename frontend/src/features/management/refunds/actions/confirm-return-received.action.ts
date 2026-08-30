@@ -2,10 +2,11 @@
 
 import {
   confirmRefundItemReceivedRequestSchema,
-  type Refund,
+  type ManagementRefund,
 } from "@cartura/contracts/refunds";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -16,7 +17,7 @@ import { confirmManagementRefundItemReceived } from "../api/refunds-api";
 export async function confirmReturnReceivedAction(
   refundId: string,
   note?: string,
-): Promise<ManagementActionResult<Refund>> {
+): Promise<ManagementActionResult<ManagementRefund>> {
   const id = z.uuid().safeParse(refundId);
   const input = confirmRefundItemReceivedRequestSchema.safeParse({ note });
 
@@ -25,6 +26,7 @@ export async function confirmReturnReceivedAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const refund = await confirmManagementRefundItemReceived(id.data, input.data);
     revalidatePath("/dashboard/refunds");
     return { ok: true, data: refund };

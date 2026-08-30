@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ApiError } from "@/shared/api/server-api";
+import { getActionRateLimitMetadata } from "./action-rate-limit";
 
 import type { AuthActionState } from "../types";
 
@@ -29,6 +30,7 @@ export function actionFailure(error: unknown): AuthActionState {
     return {
       ok: false,
       message: error.message,
+      ...getActionRateLimitMetadata(error),
     };
   }
 

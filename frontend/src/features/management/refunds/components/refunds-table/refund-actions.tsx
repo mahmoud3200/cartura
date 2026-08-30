@@ -1,6 +1,6 @@
 "use client";
 
-import type { Refund } from "@cartura/contracts/refunds";
+import type { ManagementRefund } from "@cartura/contracts/refunds";
 import { CreditCard, PackageCheck, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -13,13 +13,17 @@ import { formatMoney } from "@/features/management/shared/lib/admin-utils";
 import { confirmReturnReceivedAction } from "../../actions/confirm-return-received.action";
 import { executeRefundAction } from "../../actions/execute-refund.action";
 import { RefundConfirmationDialog } from "./refund-confirmation-dialog";
+import {
+  getRefundExecutionFeedback,
+  getRefundManagementActions,
+} from "./refund-management";
 import { RefundReviewDialog } from "./refund-review-dialog";
 
 export function RefundActions({
   refund,
   canManage,
 }: {
-  refund: Refund;
+  refund: ManagementRefund;
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -75,7 +79,11 @@ export function RefundActions({
       ) : null}
       {dialog === "issue" ? (
         <RefundConfirmationDialog
-          title="Issue this refund"
+          title={
+            refund.status === "failed"
+              ? "Retry this refund"
+              : "Issue this refund"
+          }
           description={
             refund.refundMethod === "cash"
               ? `Confirm ${formatMoney(refund.amount, refund.currency)} was returned to the customer in cash.`
@@ -84,7 +92,9 @@ export function RefundActions({
           confirmLabel={
             refund.refundMethod === "cash"
               ? "Confirm cash returned"
-              : "Refund original card"
+              : refund.status === "failed"
+                ? "Retry card refund"
+                : "Refund original card"
           }
           isPending={isPending}
           onCancel={() => setDialog(null)}
@@ -97,11 +107,15 @@ export function RefundActions({
                 });
                 return;
               }
-              toast.success(
-                result.data.status === "processing"
-                  ? "Refund is processing"
-                  : "Refund completed",
-              );
+              const feedback = getRefundExecutionFeedback(result.data);
+
+              if (feedback.kind === "success") {
+                toast.success(feedback.title);
+              } else {
+                toast.error(feedback.title, {
+                  description: feedback.description,
+                });
+              }
               closeAndRefresh();
             })
           }
@@ -112,32 +126,29 @@ export function RefundActions({
 }
 
 function getRefundActions(
-  refund: Refund,
+  refund: ManagementRefund,
   setDialog: (dialog: "review" | "receive" | "issue") => void,
 ): ManagementTableAction[] {
-  const actions: ManagementTableAction[] = [];
-
-  if (refund.status === "requested") {
-    actions.push({
-      label: "Review request",
-      icon: RotateCcw,
-      onSelect: () => setDialog("review"),
-    });
-  }
-  if (refund.status === "pickup_scheduled") {
-    actions.push({
-      label: "Mark items received",
-      icon: PackageCheck,
-      onSelect: () => setDialog("receive"),
-    });
-  }
-  if (["approved", "item_received"].includes(refund.status)) {
-    actions.push({
-      label: "Issue refund",
-      icon: CreditCard,
-      onSelect: () => setDialog("issue"),
-    });
-  }
-
-  return actions;
+  return getRefundManagementActions(refund).map((action) => {
+    switch (action) {
+      case "review":
+        return {
+          label: "Review request",
+          icon: RotateCcw,
+          onSelect: () => setDialog("review"),
+        };
+      case "receive":
+        return {
+          label: "Mark items received",
+          icon: PackageCheck,
+          onSelect: () => setDialog("receive"),
+        };
+      case "issue":
+        return {
+          label: refund.status === "failed" ? "Retry refund" : "Issue refund",
+          icon: CreditCard,
+          onSelect: () => setDialog("issue"),
+        };
+    }
+  });
 }

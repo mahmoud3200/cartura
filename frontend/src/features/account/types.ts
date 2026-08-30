@@ -1,8 +1,11 @@
+import type { ActionRateLimitMetadata } from "@/shared/types";
+import type { CustomerRefund } from "@cartura/contracts/refunds";
+
 export type AccountActionState = {
   ok: boolean;
   message?: string;
   fieldErrors?: Record<string, string[] | undefined>;
-};
+} & ActionRateLimitMetadata;
 
 export type AddressFormValues = {
   addressName?: string;
@@ -19,3 +22,7 @@ export type AddressFormValues = {
 export type AddressActionState = AccountActionState & {
   values?: AddressFormValues;
 };
+
+export type ReturnActionResult =
+  | { ok: true; data: CustomerRefund }
+  | ({ ok: false; message: string } & ActionRateLimitMetadata);

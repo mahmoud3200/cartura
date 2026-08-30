@@ -17,15 +17,8 @@ export function mapNotification(
     deliveries: notification.deliveries.map((delivery) => ({
       id: delivery.id,
       channel: delivery.channel,
-      recipient: delivery.recipient,
       status: delivery.status,
-      attempts: delivery.attempts,
-      providerMessageId: delivery.providerMessageId,
-      failureReason: delivery.failureReason,
-      scheduledAt: delivery.scheduledAt?.toISOString() ?? null,
       sentAt: delivery.sentAt?.toISOString() ?? null,
-      createdAt: delivery.createdAt.toISOString(),
-      updatedAt: delivery.updatedAt.toISOString(),
     })),
   };
 }

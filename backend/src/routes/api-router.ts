@@ -24,20 +24,15 @@ import {
   managementRefundsRouter,
   refundsRouter,
 } from "../modules/refunds/index.js";
+import { systemController } from "../modules/system/index.js";
 import { usersRouter } from "../modules/users/index.js";
+import { readRateLimit } from "../shared/middleware/rate-limit.js";
 
 export const apiRouter = Router();
 
 apiRouter.use(rejectRestrictedAccount);
 
-apiRouter.get("/", (_req, res) => {
-  res.status(200).json({
-    data: {
-      name: "Cartura API",
-      version: "v1",
-    },
-  });
-});
+apiRouter.get("/", readRateLimit, systemController.apiInfo);
 
 apiRouter.use("/management/authorization", authorizationRouter);
 apiRouter.use("/management/analytics", managementAnalyticsRouter);

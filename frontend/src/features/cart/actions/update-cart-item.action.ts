@@ -2,6 +2,7 @@
 
 import { updateCartItemRequestSchema } from "@cartura/contracts/cart";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { updateCustomerCartItem } from "../api/cart-api";
 import type { CartMutationResult } from "../types";
@@ -22,6 +23,7 @@ export async function updateCartItemAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     return {
       ok: true,
       data: await updateCustomerCartItem(parsed.data.productId, {
@@ -32,4 +34,3 @@ export async function updateCartItemAction(
     return cartActionFailure(error);
   }
 }
-

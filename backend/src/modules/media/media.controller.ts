@@ -1,16 +1,17 @@
 import type { RequestHandler } from "express";
 import {
-  imageEditSpecsSchema,
   type ImageEditSpec,
   type MediaAssetUsage,
 } from "@cartura/contracts/media";
 
 import { validationError } from "../../shared/errors/index.js";
-import {
-  getOptionalAuthenticatedUserId,
-  getPathParam,
-} from "../../shared/utils/request.utils.js";
+import { getAuthenticatedUserId } from "../../shared/utils/request.utils.js";
+import { parseInput } from "../../shared/validation/parse-input.js";
 import { mapMediaAsset } from "./media.mapper.js";
+import {
+  imageEditSpecsSchema,
+  mediaAssetIdParamsSchema,
+} from "./media.schemas.js";
 import { mediaService } from "./media.service.js";
 
 export class MediaController {
@@ -27,7 +28,7 @@ export class MediaController {
           files,
           usage,
           getImageEdits(req.body?.edits, files.length),
-          getOptionalAuthenticatedUserId(req),
+          getAuthenticatedUserId(req),
         );
 
         res.status(201).json({ data: assets.map(mapMediaAsset) });
@@ -39,7 +40,8 @@ export class MediaController {
 
   delete: RequestHandler = async (req, res, next) => {
     try {
-      await mediaService.deletePending(getPathParam(req.params.mediaAssetId));
+      const { mediaAssetId } = parseInput(mediaAssetIdParamsSchema, req.params);
+      await mediaService.deletePending(mediaAssetId);
       res.status(204).send();
     } catch (error) {
       next(error);
@@ -56,7 +58,9 @@ function getImageEdits(value: unknown, fileCount: number): ImageEditSpec[] {
   try {
     parsed = JSON.parse(value);
   } catch {
-    throw validationError({ edits: ["Image edit instructions must be valid JSON"] });
+    throw validationError({
+      edits: ["Image edit instructions must be valid JSON"],
+    });
   }
 
   const result = imageEditSpecsSchema.safeParse(parsed);

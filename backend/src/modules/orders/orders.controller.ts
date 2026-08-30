@@ -5,14 +5,13 @@ import { getAuditContext } from "../audit-logs/audit-context.js";
 import { mapPaginatedResult } from "../../shared/pagination/pagination.js";
 import {
   getAuthenticatedUserId,
-  getOptionalAuthenticatedUserId,
-  getPathParam,
 } from "../../shared/utils/request.utils.js";
-import { mapOrder } from "./orders.mapper.js";
+import { mapCheckoutOrderResult, mapOrder } from "./orders.mapper.js";
 import {
   buyNowCheckoutRequestSchema,
   checkoutOrderRequestSchema,
   listOrdersQuerySchema,
+  orderIdParamsSchema,
   updateOrderStatusRequestSchema,
 } from "./orders.schemas.js";
 import { ordersService } from "./orders.service.js";
@@ -26,12 +25,7 @@ export class OrdersController {
         body,
       );
 
-      res.status(201).json({
-        data: {
-          order: mapOrder(result.order),
-          checkoutUrl: result.checkoutUrl,
-        },
-      });
+      res.status(201).json({ data: mapCheckoutOrderResult(result) });
     } catch (error) {
       next(error);
     }
@@ -45,12 +39,7 @@ export class OrdersController {
         body,
       );
 
-      res.status(201).json({
-        data: {
-          order: mapOrder(result.order),
-          checkoutUrl: result.checkoutUrl,
-        },
-      });
+      res.status(201).json({ data: mapCheckoutOrderResult(result) });
     } catch (error) {
       next(error);
     }
@@ -74,7 +63,7 @@ export class OrdersController {
     try {
       const order = await ordersService.getForUser(
         getAuthenticatedUserId(req),
-        getPathParam(req.params.orderId),
+        parseInput(orderIdParamsSchema, req.params).orderId,
       );
 
       res.status(200).json({ data: mapOrder(order) });
@@ -96,7 +85,9 @@ export class OrdersController {
 
   get: RequestHandler = async (req, res, next) => {
     try {
-      const order = await ordersService.get(getPathParam(req.params.orderId));
+      const order = await ordersService.get(
+        parseInput(orderIdParamsSchema, req.params).orderId,
+      );
 
       res.status(200).json({ data: mapOrder(order) });
     } catch (error) {
@@ -108,9 +99,9 @@ export class OrdersController {
     try {
       const body = parseInput(updateOrderStatusRequestSchema, req.body);
       const order = await ordersService.updateStatus(
-        getPathParam(req.params.orderId),
+        parseInput(orderIdParamsSchema, req.params).orderId,
         body,
-        getOptionalAuthenticatedUserId(req),
+        getAuthenticatedUserId(req),
         getAuditContext(req),
       );
 

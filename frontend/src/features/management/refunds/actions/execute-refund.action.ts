@@ -1,8 +1,9 @@
 "use server";
 
-import type { Refund } from "@cartura/contracts/refunds";
+import type { ManagementRefund } from "@cartura/contracts/refunds";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -12,7 +13,7 @@ import { executeManagementRefund } from "../api/refunds-api";
 
 export async function executeRefundAction(
   refundId: string,
-): Promise<ManagementActionResult<Refund>> {
+): Promise<ManagementActionResult<ManagementRefund>> {
   const id = z.uuid().safeParse(refundId);
 
   if (!id.success) {
@@ -20,6 +21,7 @@ export async function executeRefundAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const refund = await executeManagementRefund(id.data);
     revalidatePath("/dashboard/refunds");
     return { ok: true, data: refund };

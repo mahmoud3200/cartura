@@ -1,4 +1,4 @@
-export type { OrderWithDetails } from "./orders.repository.js";
+export type { OrderWithDetails } from "./orders.persistence.js";
 
 export type OrderNotificationIntent = {
   type: string;

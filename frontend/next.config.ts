@@ -1,10 +1,7 @@
 import type { NextConfig } from "next";
 
 const projectRoot = import.meta.dirname;
-const apiBaseUrl = (
-  process.env.CARTURA_API_URL ?? "http://localhost:4000"
-).replace(/\/$/, "");
-const devTunnelHost = "qf0xcs7f-3000.uks1.devtunnels.ms";
+const devTunnelHost = "https://qf0xcs7f-3000.uks1.devtunnels.ms/";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [devTunnelHost],
@@ -26,14 +23,6 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   turbopack: {
     root: projectRoot,
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/auth/:path*",
-        destination: `${apiBaseUrl}/api/v1/auth/:path*`,
-      },
-    ];
   },
   webpack(config) {
     config.resolve.extensionAlias = {

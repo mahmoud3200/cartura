@@ -1,32 +1,23 @@
 import type { Prisma } from "../../generated/prisma/client.js";
+import type {
+  AuditAction,
+  AuditActorType,
+  AuditResourceType,
+} from "@cartura/contracts/audit-logs";
 
 export type AuditLogMetadata = Prisma.InputJsonValue;
 
 export type AuditContext = {
   actorUserId?: string | undefined;
-  actorType: string;
+  actorType: AuditActorType;
   requestId?: string | undefined;
   ipAddress?: string | undefined;
   userAgent?: string | undefined;
 };
 
 export type RecordAuditLogInput = AuditContext & {
-  action: string;
-  resourceType: string;
+  action: AuditAction;
+  resourceType: AuditResourceType;
   resourceId?: string | null | undefined;
   metadata?: AuditLogMetadata | undefined;
 };
-
-export type AuditLogWithActor = Prisma.AuditLogGetPayload<{
-  include: {
-    actor: {
-      select: {
-        id: true;
-        name: true;
-        firstName: true;
-        lastName: true;
-        email: true;
-      };
-    };
-  };
-}>;

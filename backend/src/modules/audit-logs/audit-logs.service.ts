@@ -4,7 +4,6 @@ import {
   auditLogsRepository,
   type AuditLogsRepository,
 } from "./audit-logs.repository.js";
-import type { RecordAuditLogInput } from "./audit-logs.types.js";
 
 export class AuditLogsService {
   constructor(
@@ -13,10 +12,6 @@ export class AuditLogsService {
 
   list(query: ListAuditLogsQuery) {
     return this.repository.list(query);
-  }
-
-  record(input: RecordAuditLogInput) {
-    return this.repository.create(input);
   }
 }
 

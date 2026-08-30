@@ -1,10 +1,6 @@
-import type { AuditLogWithActor } from "./audit-logs.types.js";
+import type { AuditLogWithActor } from "./audit-logs.repository.js";
 
 export function getResourceLabel(auditLog: AuditLogWithActor) {
-  if (auditLog.resourceType !== "role") {
-    return null;
-  }
-
   const metadata = auditLog.metadata;
 
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {

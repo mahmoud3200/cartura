@@ -1,10 +1,12 @@
 import { paymobConfig } from "../../config/paymob.js";
 import { httpError } from "../../shared/errors/index.js";
-import type {
-  CreatePaymobIntentionInput,
-  CreatePaymobRefundInput,
-  PaymobIntentionResponse,
-  PaymobRefundResponse,
+import {
+  paymobIntentionResponseSchema,
+  paymobRefundResponseSchema,
+  type CreatePaymobIntentionInput,
+  type CreatePaymobRefundInput,
+  type PaymobIntentionResponse,
+  type PaymobRefundResponse,
 } from "./paymob.types.js";
 import {
   calculateTransactionHmac,
@@ -25,7 +27,7 @@ export class PaymobClient {
       );
     }
 
-    const response = await fetch(`${paymobConfig.baseUrl}/v1/intention/`, {
+    const response = await fetchPaymob(`${paymobConfig.baseUrl}/v1/intention/`, {
       method: "POST",
       headers: {
         Authorization: `Token ${paymobConfig.secretKey}`,
@@ -43,7 +45,7 @@ export class PaymobClient {
         redirection_url: input.redirectionUrl,
         extras: input.extras,
       }),
-    });
+    }, "PAYMOB_INTENTION_UNAVAILABLE", "Paymob checkout is unavailable");
 
     const payload = await response.json().catch(() => null);
 
@@ -52,11 +54,19 @@ export class PaymobClient {
         502,
         "PAYMOB_INTENTION_FAILED",
         "Paymob failed to create checkout intention",
-        payload,
       );
     }
 
-    return payload as PaymobIntentionResponse;
+    const parsed = paymobIntentionResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw httpError(
+        502,
+        "PAYMOB_INTENTION_RESPONSE_INVALID",
+        "Paymob returned an invalid checkout response",
+      );
+    }
+
+    return parsed.data;
   }
 
   getUnifiedCheckoutUrl(clientSecret: string): string {
@@ -96,7 +106,7 @@ export class PaymobClient {
     }
 
     const authToken = await this.createLegacyAuthToken();
-    const response = await fetch(getPaymobUrl(paymobConfig.refundEndpoint), {
+    const response = await fetchPaymob(getPaymobUrl(paymobConfig.refundEndpoint), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -106,7 +116,7 @@ export class PaymobClient {
         transaction_id: input.transactionId,
         amount_cents: input.amount,
       }),
-    });
+    }, "PAYMOB_REFUND_UNAVAILABLE", "Paymob refund service is unavailable");
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
@@ -114,11 +124,19 @@ export class PaymobClient {
         502,
         "PAYMOB_REFUND_FAILED",
         "Paymob failed to execute refund",
-        payload,
       );
     }
 
-    return payload as PaymobRefundResponse;
+    const parsed = paymobRefundResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw httpError(
+        502,
+        "PAYMOB_REFUND_RESPONSE_INVALID",
+        "Paymob returned an invalid refund response",
+      );
+    }
+
+    return parsed.data;
   }
 
   verifyTransactionHmac(payload: unknown, receivedHmac: string | undefined) {
@@ -142,7 +160,7 @@ export class PaymobClient {
   }
 
   private async createLegacyAuthToken(): Promise<string> {
-    const response = await fetch(`${paymobConfig.baseUrl}/api/auth/tokens`, {
+    const response = await fetchPaymob(`${paymobConfig.baseUrl}/api/auth/tokens`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -150,7 +168,7 @@ export class PaymobClient {
       body: JSON.stringify({
         api_key: paymobConfig.apiKey,
       }),
-    });
+    }, "PAYMOB_AUTH_UNAVAILABLE", "Paymob authentication is unavailable");
     const payload = await response.json().catch(() => null);
 
     const token = isRecord(payload) ? payload.token : null;
@@ -160,7 +178,6 @@ export class PaymobClient {
         502,
         "PAYMOB_AUTH_FAILED",
         "Paymob failed to create an API auth token",
-        payload,
       );
     }
 
@@ -169,3 +186,21 @@ export class PaymobClient {
 }
 
 export const paymobClient = new PaymobClient();
+
+const PAYMOB_REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchPaymob(
+  url: string,
+  init: RequestInit,
+  code: string,
+  message: string,
+): Promise<Response> {
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(PAYMOB_REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    throw httpError(502, code, message);
+  }
+}

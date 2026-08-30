@@ -8,7 +8,7 @@ export function createAuthenticationCodeEmail(input: {
 }) {
   return createTransactionalEmail({
     subject: input.subject,
-    preheader: `${input.purpose} code: ${input.code}`,
+    preheader: `${input.purpose} This code expires soon.`,
     heading: input.subject,
     body: `${input.purpose} Enter the code below. It expires in ${input.expiresInMinutes} minutes.`,
     details: [{ label: "Security code", value: input.code }],

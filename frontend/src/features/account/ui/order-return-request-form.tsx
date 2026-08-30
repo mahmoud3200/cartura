@@ -1,7 +1,10 @@
 "use client";
 
 import type { OrderSummary } from "@cartura/contracts/orders";
-import type { Refund, RefundReason } from "@cartura/contracts/refunds";
+import type {
+  CustomerRefund,
+  RefundReason,
+} from "@cartura/contracts/refunds";
 import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -28,7 +31,7 @@ import { OrderRefundNotes } from "./order-refund-notes";
 type OrderReturnRequestFormProps = {
   order: OrderSummary;
   deadline: Date;
-  previousRejection?: Refund;
+  previousRejection?: CustomerRefund;
 };
 
 export function OrderReturnRequestForm({

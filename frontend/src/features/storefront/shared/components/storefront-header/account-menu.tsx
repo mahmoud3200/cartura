@@ -5,6 +5,7 @@ import type { AuthUser } from "@cartura/contracts/auth";
 import {
   ChevronDown,
   CircleUserRound,
+  LayoutDashboard,
   LogOut,
   MapPin,
   ReceiptText,
@@ -24,7 +25,13 @@ const accountLinks = [
   { label: "Sign-in security", href: "/settings/security", icon: ShieldCheck },
 ];
 
-export function AccountMenu({ user }: { user: AuthUser }) {
+export function AccountMenu({
+  user,
+  showDashboard = false,
+}: {
+  user: AuthUser;
+  showDashboard?: boolean;
+}) {
   return (
     <Menu.Root>
       <Menu.Trigger
@@ -47,6 +54,19 @@ export function AccountMenu({ user }: { user: AuthUser }) {
               <p className="mt-1 truncate text-xs text-muted-foreground">{user.email}</p>
             </div>
             <Menu.Separator className="my-1 h-px bg-border" />
+            {showDashboard ? (
+              <Menu.LinkItem
+                render={<Link href="/dashboard" />}
+                closeOnClick
+                className="flex cursor-default items-center gap-3 rounded-lg px-3 py-2 text-sm outline-none data-highlighted:bg-muted"
+              >
+                <LayoutDashboard
+                  className="size-4 text-muted-foreground"
+                  strokeWidth={1.8}
+                />
+                Dashboard
+              </Menu.LinkItem>
+            ) : null}
             {accountLinks.map((item) => {
               const Icon = item.icon;
               return (

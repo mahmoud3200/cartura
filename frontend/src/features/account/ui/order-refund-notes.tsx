@@ -1,9 +1,9 @@
-import type { Refund } from "@cartura/contracts/refunds";
+import type { CustomerRefund } from "@cartura/contracts/refunds";
 
 import { cn } from "@/shared/lib/utils";
 
 type OrderRefundNotesProps = {
-  refund: Refund;
+  refund: CustomerRefund;
   className?: string;
 };
 
@@ -23,13 +23,6 @@ export function OrderRefundNotes({
               : "Review note",
           value: refund.reviewNote,
           destructive: refund.status === "rejected",
-        }
-      : null,
-    refund.failureReason
-      ? {
-          label: "Processing issue",
-          value: refund.failureReason,
-          destructive: true,
         }
       : null,
   ].filter((note): note is NonNullable<typeof note> => note !== null);

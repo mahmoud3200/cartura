@@ -3,9 +3,13 @@ import { z } from "zod";
 import {
   dataListResponseSchema,
   dataResponseSchema,
+  paginatedQuerySchema,
   paginatedResponseSchema,
-  paginationQuerySchema,
 } from "../common/index.js";
+import {
+  paymentRecordProviderSchema,
+  paymentRecordStatusSchema,
+} from "../payments/index.js";
 
 export const paymentMethodSchema = z.enum(["card", "cash_on_delivery"]);
 export const ORDER_CURRENCY = "EGP" as const;
@@ -35,7 +39,7 @@ export const checkoutOrderRequestSchema = z.object({
   paymentMethod: paymentMethodSchema.default("card"),
   idempotencyKey: z.string().trim().min(8).max(120),
   notes: z.string().trim().max(500).optional(),
-});
+}).strict();
 
 export const buyNowCheckoutRequestSchema = z.object({
   productId: z.uuid(),
@@ -44,24 +48,30 @@ export const buyNowCheckoutRequestSchema = z.object({
   paymentMethod: paymentMethodSchema.default("card"),
   idempotencyKey: z.string().trim().min(8).max(120),
   notes: z.string().trim().max(500).optional(),
-});
+}).strict();
 
-export const listOrdersQuerySchema = z.intersection(
-  paginationQuerySchema,
-  z.object({
-    status: orderStatusSchema.optional(),
-    paymentMethod: paymentMethodSchema.optional(),
-    q: z.string().trim().min(1).max(120).optional(),
-  }),
-);
+export const listOrdersQuerySchema = paginatedQuerySchema({
+  status: orderStatusSchema.optional(),
+  paymentMethod: paymentMethodSchema.optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+});
 
 export const updateOrderStatusRequestSchema = z.object({
   status: manageableOrderStatusSchema,
   note: z.string().trim().max(500).optional(),
-});
+}).strict();
+
+export const orderIdParamsSchema = z.object({ orderId: z.uuid() }).strict();
+
+export const orderStatusActorSchema = z.enum([
+  "customer",
+  "staff",
+  "system",
+  "provider",
+]);
 
 export const orderCustomerSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   firstName: z.string(),
   lastName: z.string(),
@@ -69,19 +79,18 @@ export const orderCustomerSchema = z.object({
 });
 
 export const orderPaymentSummarySchema = z.object({
-  id: z.string(),
-  provider: z.string().optional(),
-  providerTransactionId: z.string().nullable().optional(),
-  paymentMethod: z.string().optional(),
-  status: z.string(),
+  id: z.uuid(),
+  provider: paymentRecordProviderSchema,
+  providerTransactionId: z.string().nullable(),
+  paymentMethod: paymentMethodSchema,
+  status: paymentRecordStatusSchema,
   amount: z.number(),
-  currency: z.string(),
+  currency: orderCurrencySchema,
   failureReason: z.string().nullable(),
-  paidAt: z.string().nullable(),
-  refundedAt: z.string().nullable().optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  metadata: z.unknown().nullable().optional(),
+  paidAt: z.iso.datetime().nullable(),
+  refundedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const orderAddressSchema = z.object({
@@ -95,8 +104,8 @@ export const orderAddressSchema = z.object({
 });
 
 export const orderItemSchema = z.object({
-  id: z.string(),
-  productId: z.string(),
+  id: z.uuid(),
+  productId: z.uuid(),
   productName: z.string(),
   productSku: z.string(),
   unitPrice: z.number(),
@@ -105,30 +114,30 @@ export const orderItemSchema = z.object({
 });
 
 export const orderStatusHistorySchema = z.object({
-  id: z.string(),
-  actorType: z.string(),
-  changedBy: z.string().nullable(),
-  previousStatus: z.string().nullable(),
-  newStatus: z.string(),
+  id: z.uuid(),
+  actorType: orderStatusActorSchema,
+  changedBy: z.uuid().nullable(),
+  previousStatus: orderStatusSchema.nullable(),
+  newStatus: orderStatusSchema,
   note: z.string().nullable(),
-  createdAt: z.string(),
+  createdAt: z.iso.datetime(),
 });
 
 export const orderSummarySchema = z.object({
-  id: z.string(),
-  userId: z.string(),
+  id: z.uuid(),
+  userId: z.uuid(),
   orderNumber: z.string(),
-  status: z.string(),
+  status: orderStatusSchema,
   subtotal: z.number(),
   shippingCost: z.number(),
   discountAmount: z.number(),
   totalAmount: z.number(),
-  currency: z.string(),
+  currency: orderCurrencySchema,
   notes: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  completedAt: z.string().nullable(),
-  cancelledAt: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  completedAt: z.iso.datetime().nullable(),
+  cancelledAt: z.iso.datetime().nullable(),
   customer: orderCustomerSchema,
   address: orderAddressSchema.nullable(),
   items: z.array(orderItemSchema),
@@ -155,6 +164,7 @@ export const buyNowCheckoutResponseSchema = dataResponseSchema(
 );
 
 export type CheckoutOrderRequest = z.infer<typeof checkoutOrderRequestSchema>;
+export type OrderIdParams = z.infer<typeof orderIdParamsSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 export type ManageableOrderStatus = z.infer<

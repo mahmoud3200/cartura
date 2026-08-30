@@ -5,17 +5,16 @@ import type {
   ReviewRefundRequest,
 } from "@cartura/contracts/refunds";
 
-import { Prisma } from "../../generated/prisma/client.js";
 import { paymobClient } from "../../infrastructure/payments/paymob.client.js";
 import { conflictError, notFoundError } from "../../shared/errors/index.js";
 import type { AuditContext } from "../audit-logs/audit-logs.types.js";
+import { throwRefundPersistenceError } from "./refunds.errors.js";
 import {
   refundsRepository,
   type RefundsRepository,
 } from "./refunds.repository.js";
 import {
   canExecuteRefund,
-  countsTowardRefundedAmount,
   createCashRefundResult,
   getRefundMethod,
   isReturnRequestWithinEligibilityWindow,
@@ -25,6 +24,10 @@ import {
 export class RefundsService {
   constructor(
     private readonly repository: RefundsRepository = refundsRepository,
+    private readonly provider: Pick<
+      typeof paymobClient,
+      "refundTransaction"
+    > = paymobClient,
   ) {}
 
   list(query: ListRefundsQuery) {
@@ -73,15 +76,10 @@ export class RefundsService {
         "This order does not have a paid payment to refund",
       );
     }
+    const payment = order.payment;
 
-    const refundedAmount = order.payment.refunds
-      .filter((refund) => countsTowardRefundedAmount(refund.status))
-      .reduce(
-        (sum, refund) => sum.plus(refund.amount),
-        new Prisma.Decimal(0),
-      );
-    const remainingAmount = new Prisma.Decimal(order.payment.amount).minus(
-      refundedAmount,
+    const remainingAmount = await this.repository.getRemainingRefundAmount(
+      payment.id,
     );
 
     if (remainingAmount.lte(0)) {
@@ -91,15 +89,17 @@ export class RefundsService {
       );
     }
 
-    return this.repository.createRequested({
-      userId,
-      request: input,
-      paymentId: order.payment.id,
-      amount: remainingAmount,
-      currency: order.payment.currency,
-      refundMethod: getRefundMethod(order.payment.paymentMethod),
-      ...(audit ? { audit } : {}),
-    });
+    return withRefundPersistenceErrors(() =>
+      this.repository.createRequested({
+        userId,
+        request: input,
+        paymentId: payment.id,
+        amount: remainingAmount,
+        currency: payment.currency,
+        refundMethod: getRefundMethod(payment.paymentMethod),
+        ...(audit ? { audit } : {}),
+      }),
+    );
   }
 
   async review(
@@ -127,7 +127,9 @@ export class RefundsService {
       );
     }
 
-    return this.repository.review(refund, input, reviewerId, audit);
+    return withRefundPersistenceErrors(() =>
+      this.repository.review(refund, input, reviewerId, audit),
+    );
   }
 
   async confirmItemReceived(
@@ -145,15 +147,23 @@ export class RefundsService {
       );
     }
 
-    return this.repository.confirmItemReceived(
-      refund,
-      input.note,
-      actorId,
-      audit,
+    return withRefundPersistenceErrors(() =>
+      this.repository.confirmItemReceived(
+        refund,
+        input.note,
+        actorId,
+        audit,
+      ),
     );
   }
 
-  async execute(refundId: string, audit?: AuditContext) {
+  execute(refundId: string, audit?: AuditContext) {
+    return withRefundPersistenceErrors(() =>
+      this.executeRefund(refundId, audit),
+    );
+  }
+
+  private async executeRefund(refundId: string, audit?: AuditContext) {
     const refund = await this.get(refundId);
 
     if (!canExecuteRefund(refund)) {
@@ -178,45 +188,67 @@ export class RefundsService {
       refund.resolution === "pickup" ? "item_received" : "approved";
     const processingRefund = await this.repository.markProcessing(refund.id);
 
+    let response: Awaited<ReturnType<typeof paymobClient.refundTransaction>> |
+      ReturnType<typeof createCashRefundResult>;
+
     try {
-      const response =
+      response =
         refund.refundMethod === "cash"
           ? createCashRefundResult(refund.id)
-          : await paymobClient.refundTransaction({
+          : await this.provider.refundTransaction({
               transactionId: refund.payment.providerTransactionId!,
               amount: toMinorUnits(refund.amount),
             });
 
-      if (response.success === false) {
-        throw new Error(
-          stringValue(response.message) ||
-            stringValue(response.detail) ||
-            "Paymob refund was rejected",
-        );
-      }
-
-      const providerRefundId = getProviderRefundId(response);
-
-      if (response.pending === true) {
-        return this.repository.markProviderPending(
-          processingRefund,
-          providerRefundId,
-          audit,
-        );
-      }
-
-      return this.repository.complete(processingRefund, providerRefundId, audit);
     } catch (error) {
       if (isPaymobRefundConfigurationError(error)) {
         await this.repository.resetExecution(refund.id, sourceStatus);
         throw error;
       }
 
-      return this.repository.fail(
+      return this.repository.recordExecutionUncertainty(
         processingRefund,
         getErrorMessage(error),
         audit,
       );
+    }
+
+    if (response.success === false) {
+      return this.repository.fail(
+        processingRefund,
+        stringValue(response.message) ||
+          stringValue(response.detail) ||
+          "Paymob refund was rejected",
+        audit,
+      );
+    }
+
+    const providerRefundId = getProviderRefundId(response);
+
+    if (response.pending === true) {
+      return this.repository.markProviderPending(
+        processingRefund,
+        providerRefundId,
+        audit,
+      );
+    }
+
+    try {
+      return await this.repository.complete(
+        processingRefund,
+        providerRefundId,
+        audit,
+      );
+    } catch (error) {
+      try {
+        return await this.repository.recordExecutionUncertainty(
+          processingRefund,
+          "The provider reported success, but Cartura could not confirm local completion. Manual reconciliation is required.",
+          audit,
+        );
+      } catch {
+        throw error;
+      }
     }
   }
 
@@ -227,6 +259,7 @@ export class RefundsService {
   completePaymobRefundCallback(
     refund: Awaited<ReturnType<RefundsRepository["findProcessingForPayment"]>>,
     providerRefundId: string,
+    eventClaim: { eventId: string; claimToken: string },
   ) {
     if (!refund) {
       throw notFoundError(
@@ -235,9 +268,14 @@ export class RefundsService {
       );
     }
 
-    return this.repository.complete(refund, refund.providerRefundId ?? providerRefundId, {
-      actorType: "provider",
-    });
+    return withRefundPersistenceErrors(() =>
+      this.repository.complete(
+        refund,
+        refund.providerRefundId ?? providerRefundId,
+        { actorType: "provider" },
+        eventClaim,
+      ),
+    );
   }
 
   private async get(refundId: string) {
@@ -251,7 +289,7 @@ export class RefundsService {
   }
 }
 
-function toMinorUnits(value: Prisma.Decimal | number): number {
+function toMinorUnits(value: number | { toString(): string }): number {
   return Math.round(Number(value) * 100);
 }
 
@@ -279,6 +317,16 @@ function isPaymobRefundConfigurationError(error: unknown): boolean {
     "code" in error &&
     (error as { code?: unknown }).code === "PAYMOB_REFUND_NOT_CONFIGURED"
   );
+}
+
+async function withRefundPersistenceErrors<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throwRefundPersistenceError(error);
+  }
 }
 
 export const refundsService = new RefundsService();

@@ -2,11 +2,11 @@ import type { RequestHandler } from "express";
 
 import {
   getAuthenticatedUserId,
-  getPathParam,
 } from "../../shared/utils/request.utils.js";
 import { parseInput } from "../../shared/validation/parse-input.js";
 import { mapAddress } from "./addresses.mapper.js";
 import {
+  addressIdParamsSchema,
   createAddressRequestSchema,
   updateAddressRequestSchema,
 } from "./addresses.schemas.js";
@@ -39,9 +39,10 @@ export class AddressesController {
 
   getById: RequestHandler = async (req, res, next) => {
     try {
+      const { addressId } = parseInput(addressIdParamsSchema, req.params);
       const address = await addressesService.getById(
         getAuthenticatedUserId(req),
-        getPathParam(req.params.addressId),
+        addressId,
       );
       res.status(200).json({ data: mapAddress(address) });
     } catch (error) {
@@ -51,10 +52,11 @@ export class AddressesController {
 
   update: RequestHandler = async (req, res, next) => {
     try {
+      const { addressId } = parseInput(addressIdParamsSchema, req.params);
       const body = parseInput(updateAddressRequestSchema, req.body);
       const address = await addressesService.update(
         getAuthenticatedUserId(req),
-        getPathParam(req.params.addressId),
+        addressId,
         body,
       );
       res.status(200).json({ data: mapAddress(address) });
@@ -65,9 +67,10 @@ export class AddressesController {
 
   setDefault: RequestHandler = async (req, res, next) => {
     try {
+      const { addressId } = parseInput(addressIdParamsSchema, req.params);
       const address = await addressesService.setDefault(
         getAuthenticatedUserId(req),
-        getPathParam(req.params.addressId),
+        addressId,
       );
       res.status(200).json({ data: mapAddress(address) });
     } catch (error) {
@@ -77,9 +80,10 @@ export class AddressesController {
 
   delete: RequestHandler = async (req, res, next) => {
     try {
+      const { addressId } = parseInput(addressIdParamsSchema, req.params);
       await addressesService.delete(
         getAuthenticatedUserId(req),
-        getPathParam(req.params.addressId),
+        addressId,
       );
       res.status(204).send();
     } catch (error) {

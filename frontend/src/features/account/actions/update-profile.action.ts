@@ -8,6 +8,7 @@ import {
   getString,
   validationFailure,
 } from "@/shared/lib/actions-utils";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { updateProfile } from "../api/profile-api";
 import type { AccountActionState } from "../types";
@@ -26,6 +27,7 @@ export async function updateProfileAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     await updateProfile(input.data);
     revalidatePath("/settings", "layout");
     return { ok: true, message: "Your profile has been updated." };

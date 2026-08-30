@@ -1,3 +1,5 @@
+import type { RefundStatus } from "@cartura/contracts/refunds";
+
 import type { CreateOutboxEventInput } from "../outbox/index.js";
 
 export function createRefundNotificationOutboxEvent(input: {
@@ -6,7 +8,7 @@ export function createRefundNotificationOutboxEvent(input: {
   orderNumber: string;
   userId: string;
   email: string;
-  status: string;
+  status: RefundStatus;
   pickupScheduledAt?: Date | null;
 }): CreateOutboxEventInput {
   const content = getRefundNotificationContent(input);
@@ -37,7 +39,7 @@ export function createRefundNotificationOutboxEvent(input: {
 
 function getRefundNotificationContent(input: {
   orderNumber: string;
-  status: string;
+  status: RefundStatus;
   pickupScheduledAt?: Date | null;
 }) {
   switch (input.status) {
@@ -74,9 +76,9 @@ function getRefundNotificationContent(input: {
     case "failed":
       return {
         title: "Refund needs attention",
-        body: `We could not complete the refund for order ${input.orderNumber}. Our team will retry it.`,
+        body: `We could not complete the refund for order ${input.orderNumber}. Our team needs to review it.`,
       };
-    default:
+    case "rejected":
       return {
         title: "Return request rejected",
         body: `Your return request for order ${input.orderNumber} was not approved.`,

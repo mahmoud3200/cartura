@@ -73,8 +73,8 @@ export function useRoleForm({
         role: {
           name: input.data.name,
           description: input.data.description ?? null,
-          permissionIds: input.data.permissionIds,
         },
+        permissions: { permissionIds: input.data.permissionIds },
       });
       return;
     }

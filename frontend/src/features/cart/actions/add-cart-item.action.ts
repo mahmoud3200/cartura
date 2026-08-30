@@ -4,6 +4,7 @@ import {
   addCartItemRequestSchema,
   type AddCartItemRequest,
 } from "@cartura/contracts/cart";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { addCustomerCartItem } from "../api/cart-api";
 import type { CartMutationResult } from "../types";
@@ -19,9 +20,9 @@ export async function addCartItemAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     return { ok: true, data: await addCustomerCartItem(parsed.data) };
   } catch (error) {
     return cartActionFailure(error);
   }
 }
-

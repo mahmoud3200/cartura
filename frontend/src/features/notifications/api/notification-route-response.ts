@@ -11,12 +11,16 @@ export async function notificationRouteResponse<T>(
     return NextResponse.json(await operation());
   } catch (error) {
     if (error instanceof ApiError) {
-      return NextResponse.json(error.payload, { status: error.status });
+      return NextResponse.json(error.payload, {
+        status: error.status,
+        headers: error.responseHeaders,
+      });
     }
 
     return NextResponse.json(
       {
         error: {
+          code: "INTERNAL_SERVER_ERROR",
           message: "Notifications could not be updated.",
         },
       },

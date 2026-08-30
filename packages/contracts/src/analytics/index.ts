@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { orderSummarySchema } from "../orders/index.js";
-import { paymentWebhookEventSchema } from "../payments/index.js";
-import { refundSchema } from "../refunds/index.js";
-import { userSchema } from "../users/index.js";
+import { orderStatusSchema } from "../orders/index.js";
+import { paymentWebhookEventStatusSchema } from "../payments/index.js";
+import { refundReasonSchema, refundStatusSchema } from "../refunds/index.js";
+import { userAccountStatusSchema } from "../users/index.js";
 
 export const analyticsRangePresetSchema = z.enum(["7d", "30d", "90d", "all"]);
 
 export const analyticsOverviewQuerySchema = z.object({
   range: analyticsRangePresetSchema.default("30d"),
-});
+}).strict();
 
 export const analyticsStatusCountSchema = z.object({
   status: z.string(),
@@ -23,18 +23,54 @@ export const analyticsRevenueSchema = z.object({
   paidOrders: z.number().int().nonnegative(),
 });
 
-export const analyticsRecentUserSchema = userSchema;
-export const analyticsRecentOrderSchema = orderSummarySchema;
-export const analyticsRecentRefundSchema = refundSchema;
-export const analyticsRecentPaymentWebhookEventSchema =
-  paymentWebhookEventSchema.omit({ payload: true });
+export const analyticsRecentUserSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.email(),
+  accountStatus: userAccountStatusSchema,
+});
+
+export const analyticsRecentOrderSchema = z.object({
+  id: z.uuid(),
+  orderNumber: z.string(),
+  status: orderStatusSchema,
+  totalAmount: z.number(),
+  currency: z.string().length(3),
+  createdAt: z.iso.datetime(),
+  customer: z.object({
+    name: z.string(),
+    email: z.email(),
+  }),
+});
+
+export const analyticsRecentRefundSchema = z.object({
+  id: z.uuid(),
+  amount: z.number(),
+  currency: z.string().length(3),
+  status: refundStatusSchema,
+  reasonCode: refundReasonSchema.nullable(),
+  order: z.object({ orderNumber: z.string() }),
+  customer: z.object({ name: z.string() }),
+});
+
+export const analyticsRecentPaymentWebhookEventSchema = z.object({
+  id: z.uuid(),
+  provider: z.string(),
+  providerEventId: z.string(),
+  eventType: z.string(),
+  status: paymentWebhookEventStatusSchema,
+  failureReason: z.string().nullable(),
+  receivedAt: z.iso.datetime(),
+});
 
 export const analyticsOverviewResponseSchema = z.object({
-  generatedAt: z.string(),
+  generatedAt: z.iso.datetime(),
   range: z.object({
     preset: analyticsRangePresetSchema,
-    from: z.string().nullable(),
-    to: z.string(),
+    from: z.iso.datetime().nullable(),
+    to: z.iso.datetime(),
   }),
   totals: z.object({
     orders: z.number().int().nonnegative(),

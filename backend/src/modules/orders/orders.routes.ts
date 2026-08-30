@@ -1,4 +1,9 @@
 import { Router } from "express";
+import {
+  checkoutRateLimit,
+  privilegedRateLimit,
+  readRateLimit,
+} from "../../shared/middleware/rate-limit.js";
 
 import { requireAuthentication } from "../auth/auth.middleware.js";
 import { requirePermissions } from "../authorization/authorization.middleware.js";
@@ -9,24 +14,27 @@ export const ordersRouter = Router();
 export const managementOrdersRouter = Router();
 
 ordersRouter.use(requireAuthentication);
-ordersRouter.post("/checkout", ordersController.checkout);
-ordersRouter.post("/buy-now", ordersController.buyNow);
-ordersRouter.get("/", ordersController.listMine);
-ordersRouter.get("/:orderId", ordersController.getMine);
+ordersRouter.post("/checkout", checkoutRateLimit, ordersController.checkout);
+ordersRouter.post("/buy-now", checkoutRateLimit, ordersController.buyNow);
+ordersRouter.get("/", readRateLimit, ordersController.listMine);
+ordersRouter.get("/:orderId", readRateLimit, ordersController.getMine);
 
 managementOrdersRouter.use(requireAuthentication);
 managementOrdersRouter.get(
   "/",
+  readRateLimit,
   requirePermissions(PERMISSIONS.ORDERS_READ),
   ordersController.list,
 );
 managementOrdersRouter.get(
   "/:orderId",
+  readRateLimit,
   requirePermissions(PERMISSIONS.ORDERS_READ),
   ordersController.get,
 );
 managementOrdersRouter.patch(
   "/:orderId/status",
+  privilegedRateLimit,
   requirePermissions(PERMISSIONS.ORDERS_UPDATE),
   ordersController.updateStatus,
 );

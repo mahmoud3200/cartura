@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -19,6 +20,7 @@ export async function deleteRoleAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     await deleteManagementRole(parsed.data);
     return { ok: true, data: null };
   } catch (error) {

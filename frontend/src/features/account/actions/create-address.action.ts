@@ -9,6 +9,7 @@ import {
   getString,
   validationFailure,
 } from "@/shared/lib/actions-utils";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { createAddress } from "../api/addresses-api";
 import type { AddressActionState, AddressFormValues } from "../types";
@@ -38,6 +39,7 @@ export async function createAddressAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     await createAddress(input.data);
     revalidatePath("/settings/addresses");
     revalidatePath("/settings");

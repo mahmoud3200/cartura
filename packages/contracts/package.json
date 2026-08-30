@@ -42,10 +42,6 @@
       "types": "./dist/users/index.d.ts",
       "import": "./dist/users/index.js"
     },
-    "./products": {
-      "types": "./dist/products/index.d.ts",
-      "import": "./dist/products/index.js"
-    },
     "./common": {
       "types": "./dist/common/index.d.ts",
       "import": "./dist/common/index.js"

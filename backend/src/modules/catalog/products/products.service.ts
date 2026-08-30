@@ -4,16 +4,26 @@ import type {
   UpdateProductInventoryRequest,
   UpdateProductRequest,
 } from "@cartura/contracts/catalog";
+import { MAX_PRODUCT_IMAGES } from "@cartura/contracts/catalog";
+import {
+  AUDIT_ACTIONS,
+  AUDIT_RESOURCE_TYPES,
+} from "@cartura/contracts/audit-logs";
 
 import type { AuditContext } from "../../audit-logs/audit-logs.types.js";
 import { mediaService } from "../../media/media.service.js";
-import { catalogHttpError, conflictError, notFoundError } from "../catalog.errors.js";
+import {
+  catalogHttpError,
+  conflictError,
+  notFoundError,
+  throwCatalogPersistenceError,
+} from "../catalog.errors.js";
 import { categoriesRepository } from "../categories/categories.repository.js";
 import {
   productsRepository,
   type ProductsRepository,
 } from "./products.repository.js";
-import { expandActiveProductCategoryIds } from "./products-category-membership.js";
+import { resolveActiveProductCategoryMembership } from "./products-category-membership.js";
 
 export class ProductsService {
   constructor(
@@ -45,7 +55,7 @@ export class ProductsService {
   ) {
     await this.assertSlugAvailable(input.slug);
     await this.assertSkuAvailable(input.sku);
-    const categoryIds = await expandActiveProductCategoryIds(
+    const membership = await resolveActiveProductCategoryMembership(
       input.categoryIds,
       categoriesRepository,
     );
@@ -55,22 +65,32 @@ export class ProductsService {
       "product_image",
     );
 
-    return this.repository.create({ ...input, categoryIds }, createdBy, audit ? {
-      ...audit,
-      action: "product.create",
-      resourceType: "product",
-      metadata: {
-        name: input.name,
-        slug: input.slug,
-        sku: input.sku,
-        price: input.price,
-        stockQuantity: input.stockQuantity,
-        categoryIds,
-        imageCount: input.images.length,
-        mediaAssetIds: input.images.map((image) => image.mediaAssetId),
-        createdBy: createdBy ?? null,
-      },
-    } : undefined);
+    try {
+      return await this.repository.create(
+        input,
+        createdBy,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.PRODUCT_CREATE,
+              resourceType: AUDIT_RESOURCE_TYPES.PRODUCT,
+              metadata: {
+                name: input.name,
+                slug: input.slug,
+                sku: input.sku,
+                price: input.price,
+                stockQuantity: input.stockQuantity,
+                categoryIds: membership.directIds,
+                imageCount: input.images.length,
+                mediaAssetIds: input.images.map((image) => image.mediaAssetId),
+                createdBy: createdBy ?? null,
+              },
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
   async update(
@@ -78,7 +98,7 @@ export class ProductsService {
     input: UpdateProductRequest,
     audit?: AuditContext,
   ) {
-    const product = await this.assertExists(productId);
+    const product = await this.assertActiveExists(productId);
 
     if (input.slug !== undefined) {
       await this.assertSlugAvailable(input.slug, productId);
@@ -88,15 +108,13 @@ export class ProductsService {
       await this.assertSkuAvailable(input.sku, productId);
     }
 
-    if (input.categoryIds !== undefined) {
-      input = {
-        ...input,
-        categoryIds: await expandActiveProductCategoryIds(
-          input.categoryIds,
-          categoriesRepository,
-        ),
-      };
-    }
+    const membership =
+      input.categoryIds === undefined
+        ? undefined
+        : await resolveActiveProductCategoryMembership(
+            input.categoryIds,
+            categoriesRepository,
+          );
 
     if (input.images !== undefined) {
       this.assertHasProductImages(input.images.length);
@@ -111,31 +129,40 @@ export class ProductsService {
       this.assertHasProductImages(product.images.length);
     }
 
-    return this.repository.update(productId, input, audit ? {
-      ...audit,
-      action: "product.update",
-      resourceType: "product",
-      resourceId: productId,
-      metadata: {
-        changedFields: Object.keys(input),
-        previous: summarizeProduct(product),
-        next: {
-          name: input.name ?? product.name,
-          slug: input.slug ?? product.slug,
-          sku: input.sku ?? product.sku,
-          price: input.price ?? Number(product.price),
-          stockQuantity: input.stockQuantity ?? product.stockQuantity,
-          isDeleted: input.isDeleted ?? product.isDeleted,
-          categoryIds:
-            input.categoryIds ??
-            product.categories.map(({ categoryId }) => categoryId),
-          imageCount: input.images?.length ?? product.images.length,
-          mediaAssetIds:
-            input.images?.map((image) => image.mediaAssetId) ??
-            product.images.map((image) => image.mediaAssetId),
-        },
-      },
-    } : undefined);
+    try {
+      return await this.repository.update(
+        productId,
+        input,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.PRODUCT_UPDATE,
+              resourceType: AUDIT_RESOURCE_TYPES.PRODUCT,
+              resourceId: productId,
+              metadata: {
+                changedFields: Object.keys(input),
+                previous: summarizeProduct(product),
+                next: {
+                  name: input.name ?? product.name,
+                  slug: input.slug ?? product.slug,
+                  sku: input.sku ?? product.sku,
+                  price: input.price ?? Number(product.price),
+                  stockQuantity: product.stockQuantity,
+                  isDeleted: product.isDeleted,
+                  categoryIds:
+                    membership?.directIds ?? directCategoryIds(product),
+                  imageCount: input.images?.length ?? product.images.length,
+                  mediaAssetIds:
+                    input.images?.map((image) => image.mediaAssetId) ??
+                    product.images.map((image) => image.mediaAssetId),
+                },
+              },
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
   async updateInventory(
@@ -143,45 +170,64 @@ export class ProductsService {
     input: UpdateProductInventoryRequest,
     audit?: AuditContext,
   ) {
-    const product = await this.assertExists(productId);
+    const product = await this.assertActiveExists(productId);
 
-    return this.repository.updateInventory(productId, input.stockQuantity, audit ? {
-      ...audit,
-      action: "product.inventory.update",
-      resourceType: "product",
-      resourceId: productId,
-      metadata: {
-        previous: {
-          stockQuantity: product.stockQuantity,
-        },
-        next: {
-          stockQuantity: input.stockQuantity,
-        },
-      },
-    } : undefined);
+    try {
+      return await this.repository.updateInventory(
+        productId,
+        input.stockQuantity,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.PRODUCT_INVENTORY_UPDATE,
+              resourceType: AUDIT_RESOURCE_TYPES.PRODUCT,
+              resourceId: productId,
+              metadata: {
+                previous: {
+                  stockQuantity: product.stockQuantity,
+                },
+                next: {
+                  stockQuantity: input.stockQuantity,
+                },
+              },
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
   async softDelete(productId: string, audit?: AuditContext) {
-    const product = await this.assertExists(productId);
+    const product = await this.assertActiveExists(productId);
 
-    return this.repository.softDelete(productId, audit ? {
-      ...audit,
-      action: "product.soft_delete",
-      resourceType: "product",
-      resourceId: productId,
-      metadata: {
-        previous: {
-          isDeleted: product.isDeleted,
-        },
-        next: {
-          isDeleted: true,
-        },
-      },
-    } : undefined);
+    try {
+      return await this.repository.softDelete(
+        productId,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.PRODUCT_SOFT_DELETE,
+              resourceType: AUDIT_RESOURCE_TYPES.PRODUCT,
+              resourceId: productId,
+              metadata: {
+                previous: {
+                  isDeleted: product.isDeleted,
+                },
+                next: {
+                  isDeleted: true,
+                },
+              },
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
-  private async assertExists(productId: string) {
-    const product = await this.repository.findById(productId);
+  private async assertActiveExists(productId: string) {
+    const product = await this.repository.findActiveById(productId);
 
     if (!product) {
       throw notFoundError("Product");
@@ -220,10 +266,20 @@ export class ProductsService {
         "A product must have at least one image",
       );
     }
+
+    if (imageCount > MAX_PRODUCT_IMAGES) {
+      throw catalogHttpError(
+        400,
+        "PRODUCT_IMAGE_LIMIT_EXCEEDED",
+        `A product can have at most ${MAX_PRODUCT_IMAGES} images`,
+      );
+    }
   }
 }
 
-function summarizeProduct(product: Awaited<ReturnType<ProductsRepository["findById"]>>) {
+function summarizeProduct(
+  product: Awaited<ReturnType<ProductsRepository["findActiveById"]>>,
+) {
   if (!product) {
     return null;
   }
@@ -235,10 +291,20 @@ function summarizeProduct(product: Awaited<ReturnType<ProductsRepository["findBy
     price: Number(product.price),
     stockQuantity: product.stockQuantity,
     isDeleted: product.isDeleted,
-    categoryIds: product.categories.map(({ categoryId }) => categoryId),
+    categoryIds: directCategoryIds(product),
     imageCount: product.images.length,
     mediaAssetIds: product.images.map((image) => image.mediaAssetId),
   };
+}
+
+function directCategoryIds(
+  product: NonNullable<
+    Awaited<ReturnType<ProductsRepository["findActiveById"]>>
+  >,
+) {
+  return product.categories
+    .filter(({ isDirect }) => isDirect)
+    .map(({ categoryId }) => categoryId);
 }
 
 export const productsService = new ProductsService();

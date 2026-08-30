@@ -3,14 +3,24 @@ import {
   refundReasonSchema,
   refundResolutionSchema,
   refundStatusSchema,
-  type Refund as RefundResponse,
+  type CustomerRefund,
+  type ManagementRefund,
 } from "@cartura/contracts/refunds";
+import {
+  orderCurrencySchema,
+  orderStatusSchema,
+  paymentMethodSchema,
+} from "@cartura/contracts/orders";
+import { paymentRecordStatusSchema } from "@cartura/contracts/payments";
 
-import { getRefundEligibilityDeadline } from "./refunds.policy.js";
+import { getReturnRequestEligibilityDeadline } from "./refunds.policy.js";
 import type { RefundWithDetails } from "./refunds.repository.js";
 
-export function mapRefund(refund: RefundWithDetails): RefundResponse {
+export function mapRefund(refund: RefundWithDetails): ManagementRefund {
   const order = refund.payment.order;
+  const latestRejectedRefund = refund.payment.refunds.find(
+    (candidate) => candidate.status === "rejected",
+  );
 
   return {
     id: refund.id,
@@ -19,7 +29,7 @@ export function mapRefund(refund: RefundWithDetails): RefundResponse {
     reviewedBy: refund.reviewedBy,
     providerRefundId: refund.providerRefundId,
     amount: Number(refund.amount),
-    currency: refund.currency,
+    currency: orderCurrencySchema.parse(refund.currency),
     status: refundStatusSchema.parse(refund.status),
     reasonCode: refund.reasonCode
       ? refundReasonSchema.parse(refund.reasonCode)
@@ -31,9 +41,11 @@ export function mapRefund(refund: RefundWithDetails): RefundResponse {
       : null,
     refundMethod: refundMethodSchema.parse(refund.refundMethod),
     failureReason: refund.failureReason,
-    eligibilityExpiresAt: getRefundEligibilityDeadline(
-      order.completedAt ?? order.createdAt,
-    ).toISOString(),
+    eligibilityExpiresAt: getReturnRequestEligibilityDeadline({
+      completedAt: order.completedAt ?? order.createdAt,
+      latestRejectedAt:
+        latestRejectedRefund?.reviewedAt ?? latestRejectedRefund?.updatedAt,
+    }).toISOString(),
     pickupScheduledAt: refund.pickupScheduledAt?.toISOString() ?? null,
     itemReceivedAt: refund.itemReceivedAt?.toISOString() ?? null,
     reviewedAt: refund.reviewedAt?.toISOString() ?? null,
@@ -44,14 +56,56 @@ export function mapRefund(refund: RefundWithDetails): RefundResponse {
     order: {
       id: order.id,
       orderNumber: order.orderNumber,
-      status: order.status,
+      status: orderStatusSchema.parse(order.status),
       completedAt: order.completedAt?.toISOString() ?? null,
-      address: order.address,
+      address: order.address
+        ? {
+            recipientName: order.address.recipientName,
+            phoneNumber: order.address.phoneNumber,
+            country: order.address.country,
+            city: order.address.city,
+            area: order.address.area,
+            streetAddress: order.address.streetAddress,
+            postalCode: order.address.postalCode,
+          }
+        : null,
     },
-    customer: order.user,
+    customer: {
+      id: order.user.id,
+      name: order.user.name,
+      email: order.user.email,
+    },
     payment: {
-      method: refund.payment.paymentMethod,
-      status: refund.payment.status,
+      method: paymentMethodSchema.parse(refund.payment.paymentMethod),
+      status: paymentRecordStatusSchema.parse(refund.payment.status),
     },
+  };
+}
+
+export function mapCustomerRefund(refund: RefundWithDetails): CustomerRefund {
+  const mapped = mapRefund(refund);
+
+  return {
+    id: mapped.id,
+    paymentId: mapped.paymentId,
+    amount: mapped.amount,
+    currency: mapped.currency,
+    status: mapped.status,
+    reasonCode: mapped.reasonCode,
+    customerNote: mapped.customerNote,
+    reviewNote: mapped.reviewNote,
+    resolution: mapped.resolution,
+    refundMethod: mapped.refundMethod,
+    eligibilityExpiresAt: mapped.eligibilityExpiresAt,
+    pickupScheduledAt: mapped.pickupScheduledAt,
+    itemReceivedAt: mapped.itemReceivedAt,
+    reviewedAt: mapped.reviewedAt,
+    createdAt: mapped.createdAt,
+    updatedAt: mapped.updatedAt,
+    completedAt: mapped.completedAt,
+    failedAt: mapped.failedAt,
+    order: mapped.order,
+    customer: mapped.customer,
+    payment: mapped.payment,
   };
 }

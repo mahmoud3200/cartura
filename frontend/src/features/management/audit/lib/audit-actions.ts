@@ -1,86 +1,97 @@
+import {
+  AUDIT_ACTIONS,
+  AUDIT_ACTOR_TYPES,
+  AUDIT_RESOURCE_TYPES,
+  type AuditAction,
+  type AuditResourceType,
+} from "@cartura/contracts/audit-logs";
+
 export type AuditActionOption = {
   label: string;
-  value: string;
+  value: AuditAction;
 };
 
 export type AuditResourceOption = {
   actions: readonly AuditActionOption[];
   label: string;
-  value: string;
+  value: AuditResourceType;
 };
 
 export const auditResourceOptions: readonly AuditResourceOption[] = [
   {
     label: "Products",
-    value: "product",
+    value: AUDIT_RESOURCE_TYPES.PRODUCT,
     actions: [
-      { label: "Create", value: "product.create" },
-      { label: "Update", value: "product.update" },
-      { label: "Update inventory", value: "product.inventory.update" },
-      { label: "Delete", value: "product.soft_delete" },
+      { label: "Create", value: AUDIT_ACTIONS.PRODUCT_CREATE },
+      { label: "Update", value: AUDIT_ACTIONS.PRODUCT_UPDATE },
+      { label: "Update inventory", value: AUDIT_ACTIONS.PRODUCT_INVENTORY_UPDATE },
+      { label: "Delete", value: AUDIT_ACTIONS.PRODUCT_SOFT_DELETE },
     ],
   },
   {
     label: "Categories",
-    value: "category",
+    value: AUDIT_RESOURCE_TYPES.CATEGORY,
     actions: [
-      { label: "Create", value: "category.create" },
-      { label: "Update", value: "category.update" },
-      { label: "Delete", value: "category.soft_delete" },
+      { label: "Create", value: AUDIT_ACTIONS.CATEGORY_CREATE },
+      { label: "Update", value: AUDIT_ACTIONS.CATEGORY_UPDATE },
+      { label: "Delete", value: AUDIT_ACTIONS.CATEGORY_SOFT_DELETE },
     ],
   },
   {
     label: "Orders",
-    value: "order",
+    value: AUDIT_RESOURCE_TYPES.ORDER,
     actions: [
-      { label: "Update status", value: "order.status.update" },
-      { label: "Expire", value: "order.expired" },
+      { label: "Update status", value: AUDIT_ACTIONS.ORDER_STATUS_UPDATE },
+      { label: "Expire", value: AUDIT_ACTIONS.ORDER_EXPIRED },
     ],
   },
   {
     label: "Payment webhooks",
-    value: "payment_webhook_event",
+    value: AUDIT_RESOURCE_TYPES.PAYMENT_WEBHOOK_EVENT,
     actions: [
-      { label: "Reprocess", value: "payment.webhook.reprocess" },
-      { label: "Send to manual review", value: "payment.webhook.manual_review" },
+      { label: "Reprocess", value: AUDIT_ACTIONS.PAYMENT_WEBHOOK_REPROCESS },
+      { label: "Send to manual review", value: AUDIT_ACTIONS.PAYMENT_WEBHOOK_MANUAL_REVIEW },
     ],
   },
   {
     label: "Refunds",
-    value: "refund",
+    value: AUDIT_RESOURCE_TYPES.REFUND,
     actions: [
-      { label: "Request", value: "refund.request" },
-      { label: "Execute", value: "refund.execute" },
-      { label: "Execution failed", value: "refund.execute.failed" },
+      { label: "Request", value: AUDIT_ACTIONS.REFUND_REQUESTED },
+      { label: "Approve", value: AUDIT_ACTIONS.REFUND_APPROVED },
+      { label: "Reject", value: AUDIT_ACTIONS.REFUND_REJECTED },
+      { label: "Schedule pickup", value: AUDIT_ACTIONS.REFUND_PICKUP_SCHEDULED },
+      { label: "Receive item", value: AUDIT_ACTIONS.REFUND_ITEM_RECEIVED },
+      { label: "Process", value: AUDIT_ACTIONS.REFUND_PROCESSING },
+      { label: "Complete", value: AUDIT_ACTIONS.REFUND_COMPLETED },
+      { label: "Fail", value: AUDIT_ACTIONS.REFUND_FAILED },
+      { label: "Execution uncertain", value: AUDIT_ACTIONS.REFUND_EXECUTION_UNCERTAIN },
     ],
   },
   {
     label: "Roles",
-    value: "role",
+    value: AUDIT_RESOURCE_TYPES.ROLE,
     actions: [
-      { label: "Create", value: "role.create" },
-      { label: "Update", value: "role.update" },
-      { label: "Replace permissions", value: "role.permissions.replace" },
-      { label: "Delete", value: "role.delete" },
+      { label: "Create", value: AUDIT_ACTIONS.ROLE_CREATE },
+      { label: "Update", value: AUDIT_ACTIONS.ROLE_UPDATE },
+      { label: "Replace permissions", value: AUDIT_ACTIONS.ROLE_PERMISSIONS_REPLACE },
+      { label: "Delete", value: AUDIT_ACTIONS.ROLE_DELETE },
     ],
   },
   {
     label: "Users",
-    value: "user",
+    value: AUDIT_RESOURCE_TYPES.USER,
     actions: [
-      { label: "Update status", value: "user.status.update" },
-      { label: "Assign role", value: "user_role.assign" },
-      { label: "Remove role", value: "user_role.remove" },
+      { label: "Update status", value: AUDIT_ACTIONS.USER_STATUS_UPDATE },
+      { label: "Update role", value: AUDIT_ACTIONS.USER_ROLE_UPDATE },
     ],
   },
 ];
 
 export const auditActorTypeOptions = [
-  { label: "Customers", value: "customer" },
-  { label: "Users", value: "user" },
-  { label: "Staff", value: "staff" },
-  { label: "System", value: "system" },
-  { label: "Providers", value: "provider" },
+  { label: "Users", value: AUDIT_ACTOR_TYPES.USER },
+  { label: "System", value: AUDIT_ACTOR_TYPES.SYSTEM },
+  { label: "Providers", value: AUDIT_ACTOR_TYPES.PROVIDER },
 ] as const;
 
 const auditActionOptions = auditResourceOptions.flatMap(
@@ -97,7 +108,7 @@ export function getAuditActionsForResource(resourceType?: string) {
 export function isAuditActionForResource(
   resourceType?: string,
   action?: string,
-) {
+): action is AuditAction {
   if (!resourceType || !action) return false;
 
   return getAuditActionsForResource(resourceType).some(

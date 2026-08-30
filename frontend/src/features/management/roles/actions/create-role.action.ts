@@ -4,6 +4,7 @@ import {
   createRoleRequestSchema,
   type CreateRoleRequest,
 } from "@cartura/contracts/authorization";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -22,6 +23,7 @@ export async function createRoleAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     await createManagementRole(parsed.data);
     return { ok: true, data: null };
   } catch (error) {

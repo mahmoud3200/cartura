@@ -13,13 +13,8 @@ export class AddressesRepository {
       orderBy: [
         { isDefault: "desc" },
         { createdAt: "desc" },
+        { id: "desc" },
       ],
-    });
-  }
-
-  countByUserId(userId: string) {
-    return prisma.address.count({
-      where: { userId },
     });
   }
 
@@ -32,8 +27,20 @@ export class AddressesRepository {
     });
   }
 
-  create(userId: string, input: CreateAddressRequest, isDefault: boolean) {
+  createWithInvariants(
+    userId: string,
+    input: CreateAddressRequest,
+    maxAddressesPerUser: number,
+  ) {
     return prisma.$transaction(async (tx) => {
+      await lockUserAddressWrites(tx, userId);
+      const addressCount = await tx.address.count({ where: { userId } });
+
+      if (addressCount >= maxAddressesPerUser) {
+        return { kind: "limit_reached" as const };
+      }
+
+      const isDefault = addressCount === 0 || input.isDefault === true;
       if (isDefault) {
         await tx.address.updateMany({
           where: { userId, isDefault: true },
@@ -41,7 +48,7 @@ export class AddressesRepository {
         });
       }
 
-      return tx.address.create({
+      const address = await tx.address.create({
         data: {
           userId,
           addressName: input.addressName,
@@ -55,6 +62,8 @@ export class AddressesRepository {
           isDefault,
         },
       });
+
+      return { kind: "created" as const, address };
     });
   }
 
@@ -75,6 +84,7 @@ export class AddressesRepository {
     if (input.postalCode !== undefined) data.postalCode = input.postalCode;
 
     return prisma.$transaction(async (tx) => {
+      await lockUserAddressWrites(tx, userId);
       const address = await tx.address.findFirst({
         where: { id: addressId, userId },
       });
@@ -92,6 +102,7 @@ export class AddressesRepository {
 
   setDefault(userId: string, addressId: string) {
     return prisma.$transaction(async (tx) => {
+      await lockUserAddressWrites(tx, userId);
       const address = await tx.address.findFirst({
         where: { id: addressId, userId },
       });
@@ -114,6 +125,7 @@ export class AddressesRepository {
 
   delete(userId: string, addressId: string) {
     return prisma.$transaction(async (tx) => {
+      await lockUserAddressWrites(tx, userId);
       const address = await tx.address.findFirst({
         where: { id: addressId, userId },
       });
@@ -129,7 +141,7 @@ export class AddressesRepository {
       if (address.isDefault) {
         const newestRemaining = await tx.address.findFirst({
           where: { userId },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         });
 
         if (newestRemaining) {
@@ -146,3 +158,15 @@ export class AddressesRepository {
 }
 
 export const addressesRepository = new AddressesRepository();
+
+async function lockUserAddressWrites(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<void> {
+  await tx.$queryRaw`
+    SELECT "id"
+    FROM "users"
+    WHERE "id" = ${userId}::uuid
+    FOR UPDATE
+  `;
+}

@@ -1,4 +1,4 @@
-import type { Refund } from "@cartura/contracts/refunds";
+import type { ManagementRefund } from "@cartura/contracts/refunds";
 
 import { StatusBadge } from "@/features/management/shared/components/admin-ui";
 import {
@@ -28,7 +28,7 @@ export function RefundsTable({
   refunds,
   canManageRefunds,
 }: {
-  refunds: Refund[];
+  refunds: ManagementRefund[];
   canManageRefunds: boolean;
 }) {
   return (

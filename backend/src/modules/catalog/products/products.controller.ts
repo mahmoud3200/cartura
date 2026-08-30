@@ -2,15 +2,17 @@ import type { RequestHandler } from "express";
 
 import { parseInput } from "../../../shared/validation/parse-input.js";
 import {
-  getOptionalAuthenticatedUserId,
-  getPathParam,
+  getAuthenticatedUserId,
 } from "../../../shared/utils/request.utils.js";
 import { getAuditContext } from "../../audit-logs/audit-context.js";
 import { mapPaginatedResult } from "../../../shared/pagination/pagination.js";
 import { mapProduct } from "./products.mapper.js";
 import {
+  categoryProductsParamsSchema,
   createProductRequestSchema,
   listProductsQuerySchema,
+  productIdParamsSchema,
+  productSlugParamsSchema,
   updateProductInventoryRequestSchema,
   updateProductRequestSchema,
 } from "./products.schemas.js";
@@ -31,8 +33,12 @@ export class ProductsController {
   listByCategory: RequestHandler = async (req, res, next) => {
     try {
       const query = parseInput(listProductsQuerySchema, req.query);
+      const { categorySlug } = parseInput(
+        categoryProductsParamsSchema,
+        req.params,
+      );
       const products = await productsService.listByCategory(
-        getPathParam(req.params.categorySlug),
+        categorySlug,
         query,
       );
 
@@ -44,9 +50,8 @@ export class ProductsController {
 
   getBySlug: RequestHandler = async (req, res, next) => {
     try {
-      const product = await productsService.getBySlug(
-        getPathParam(req.params.slug),
-      );
+      const { slug } = parseInput(productSlugParamsSchema, req.params);
+      const product = await productsService.getBySlug(slug);
 
       res.status(200).json({ data: mapProduct(product) });
     } catch (error) {
@@ -59,7 +64,7 @@ export class ProductsController {
       const body = parseInput(createProductRequestSchema, req.body);
       const product = await productsService.create(
         body,
-        getOptionalAuthenticatedUserId(req),
+        getAuthenticatedUserId(req),
         getAuditContext(req),
       );
 
@@ -72,8 +77,9 @@ export class ProductsController {
   update: RequestHandler = async (req, res, next) => {
     try {
       const body = parseInput(updateProductRequestSchema, req.body);
+      const { productId } = parseInput(productIdParamsSchema, req.params);
       const product = await productsService.update(
-        getPathParam(req.params.productId),
+        productId,
         body,
         getAuditContext(req),
       );
@@ -87,8 +93,9 @@ export class ProductsController {
   updateInventory: RequestHandler = async (req, res, next) => {
     try {
       const body = parseInput(updateProductInventoryRequestSchema, req.body);
+      const { productId } = parseInput(productIdParamsSchema, req.params);
       const product = await productsService.updateInventory(
-        getPathParam(req.params.productId),
+        productId,
         body,
         getAuditContext(req),
       );
@@ -101,8 +108,9 @@ export class ProductsController {
 
   softDelete: RequestHandler = async (req, res, next) => {
     try {
+      const { productId } = parseInput(productIdParamsSchema, req.params);
       const product = await productsService.softDelete(
-        getPathParam(req.params.productId),
+        productId,
         getAuditContext(req),
       );
 

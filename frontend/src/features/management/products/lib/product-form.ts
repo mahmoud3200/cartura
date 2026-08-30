@@ -1,7 +1,10 @@
-import { createProductRequestSchema } from "@cartura/contracts/catalog";
+import {
+  createProductRequestSchema,
+  MAX_PRODUCT_IMAGES,
+} from "@cartura/contracts/catalog";
 import { z } from "zod";
 
-export const MAX_PRODUCT_IMAGES = 10;
+export { MAX_PRODUCT_IMAGES };
 
 export type ProductFormState = {
   name: string;

@@ -10,6 +10,7 @@ import {
 
 const roleWithPermissionsInclude = {
   rolePermissions: {
+    orderBy: { permissionId: "asc" },
     include: {
       permission: true,
     },
@@ -21,6 +22,20 @@ export class AuthorizationRepository {
     return prisma.permission.findMany({
       orderBy: { name: "asc" },
     });
+  }
+
+  async findPermissionIds(permissionIds: readonly string[]) {
+    if (permissionIds.length === 0) {
+      return [];
+    }
+
+    const permissions = await prisma.permission.findMany({
+      where: { id: { in: [...permissionIds] } },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+
+    return permissions.map((permission) => permission.id);
   }
 
   async findRoles(query: ListRolesQuery) {
@@ -129,7 +144,6 @@ export class AuthorizationRepository {
     roleId: string;
     name?: string | undefined;
     description?: string | null | undefined;
-    permissionIds?: string[] | undefined;
   }, audit?: RecordAuditLogInput) {
     const data: { name?: string; description?: string | null } = {};
 
@@ -146,21 +160,6 @@ export class AuthorizationRepository {
         where: { id: input.roleId },
         data,
       });
-
-      if (input.permissionIds !== undefined) {
-        await tx.rolePermission.deleteMany({
-          where: { roleId: input.roleId },
-        });
-        if (input.permissionIds.length > 0) {
-          await tx.rolePermission.createMany({
-            data: input.permissionIds.map((permissionId) => ({
-              roleId: input.roleId,
-              permissionId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-      }
 
       if (audit) {
         await auditLogsRepository.create(audit, tx);
@@ -188,18 +187,20 @@ export class AuthorizationRepository {
         where: { roleId: input.roleId },
       });
 
-      await tx.rolePermission.createMany({
-        data: input.permissionIds.map((permissionId) => ({
-          roleId: input.roleId,
-          permissionId,
-        })),
-        skipDuplicates: true,
-      });
+      if (input.permissionIds.length > 0) {
+        await tx.rolePermission.createMany({
+          data: input.permissionIds.map((permissionId) => ({
+            roleId: input.roleId,
+            permissionId,
+          })),
+        });
+      }
 
       if (audit) {
         await auditLogsRepository.create({
           ...audit,
           metadata: {
+            ...(isJsonObject(audit.metadata) ? audit.metadata : {}),
             previous: {
               permissionIds: previousPermissions.map((permission) =>
                 permission.permissionId
@@ -282,6 +283,12 @@ export class AuthorizationRepository {
       return userRole;
     });
   }
+}
+
+function isJsonObject(
+  value: Prisma.InputJsonValue | undefined,
+): value is Prisma.InputJsonObject {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 export type RoleWithPermissions = Prisma.RoleGetPayload<{

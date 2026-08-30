@@ -13,6 +13,7 @@ export function canUpdateUserRole(input: {
     return false;
   }
 
-  return input.actingRoleName === "super_admin" ||
-    input.targetRoleName !== "admin";
+  return input.actingRoleName === SYSTEM_ROLES.SUPER_ADMIN ||
+    input.targetRoleName !== SYSTEM_ROLES.ADMIN;
 }
+import { SYSTEM_ROLES } from "@cartura/contracts/authorization";

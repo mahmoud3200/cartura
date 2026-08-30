@@ -4,6 +4,8 @@ import type { Category } from "@cartura/contracts/catalog";
 
 import { getCurrentAuthUser } from "@/features/auth/api/auth-api";
 import { getCustomerCart } from "@/features/cart/api/cart-api";
+import { listCurrentManagementPermissionNames } from "@/features/management/shared/api/management-permissions-api";
+import { hasManagementAccess } from "@/features/management/shared/lib/management-access";
 import { CartStoreHydrator } from "@/shared/components/cart-store-hydrator";
 
 import { listStorefrontCategories } from "../../../categories/api/categories-api";
@@ -15,6 +17,7 @@ type StorefrontHeaderProps = {
   categories?: Category[];
   user?: AuthUser | null;
   cart?: Cart | null;
+  showDashboard?: boolean;
 };
 
 export async function CachedStorefrontHeader() {
@@ -22,15 +25,28 @@ export async function CachedStorefrontHeader() {
     listStorefrontCategories().catch(() => []),
     getCurrentAuthUser(),
   ]);
-  const cart = user ? await getCustomerCart().catch(() => null) : null;
+  const [cart, permissionNames] = user
+    ? await Promise.all([
+        getCustomerCart().catch(() => null),
+        listCurrentManagementPermissionNames().catch(() => []),
+      ])
+    : [null, []];
 
-  return <StorefrontHeader categories={categories} user={user} cart={cart} />;
+  return (
+    <StorefrontHeader
+      categories={categories}
+      user={user}
+      cart={cart}
+      showDashboard={hasManagementAccess(permissionNames)}
+    />
+  );
 }
 
 export function StorefrontHeader({
   categories = [],
   user = null,
   cart,
+  showDashboard = false,
 }: StorefrontHeaderProps) {
   return (
     <>
@@ -41,6 +57,7 @@ export function StorefrontHeader({
           <StorefrontHeaderNavigation categories={categories} />
           <StorefrontHeaderActions
             user={user}
+            showDashboard={showDashboard}
             initialCartItemCount={cart?.itemCount ?? 0}
           />
         </div>

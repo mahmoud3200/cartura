@@ -10,6 +10,7 @@ import {
   getString,
   validationFailure,
 } from "@/shared/lib/actions-utils";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { updateAddress } from "../api/addresses-api";
 import type { AddressActionState, AddressFormValues } from "../types";
@@ -47,6 +48,7 @@ export async function updateAddressAction(
   const { addressId, ...address } = input.data;
 
   try {
+    await enforceBffRateLimit("mutation");
     await updateAddress(addressId, address);
     revalidatePath("/settings/addresses");
     revalidatePath("/settings");

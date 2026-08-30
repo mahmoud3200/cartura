@@ -8,33 +8,31 @@ import type {
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { conflictError, notFoundError } from "../../shared/errors/index.js";
-import { createPaginatedResult } from "../../shared/pagination/pagination.js";
-import { auditLogsRepository } from "../audit-logs/audit-logs.repository.js";
 import type { AuditContext } from "../audit-logs/audit-logs.types.js";
 import { outboxRepository } from "../outbox/index.js";
 import {
+  assertAvailableItems,
+  decrementStock,
+  restoreOrderStock,
+} from "./orders.inventory.repository.js";
+import {
+  ordersLifecycleRepository,
+  type OrdersLifecycleRepository,
+} from "./orders.lifecycle.repository.js";
+import {
   getInitialOrderStatus,
-  isCashOnDelivery,
-  shouldRestoreStockOnCancellation,
 } from "./orders.policy.js";
 import { createOrderNotificationOutboxEvent } from "./orders.notifications.js";
+import {
+  orderInclude,
+  type AwaitingPaymentOrder,
+  type OrderWithDetails,
+} from "./orders.persistence.js";
+import {
+  ordersQueriesRepository,
+  type OrdersQueriesRepository,
+} from "./orders.queries.repository.js";
 import type { OrderNotificationIntent } from "./orders.types.js";
-
-export const orderInclude = {
-  user: {
-    select: {
-      id: true,
-      name: true,
-      firstName: true,
-      lastName: true,
-      email: true,
-    },
-  },
-  address: true,
-  items: true,
-  payment: true,
-  statusHistory: { orderBy: { createdAt: "asc" } },
-} satisfies Prisma.OrderInclude;
 
 type CheckoutPersistence = {
   currency: string;
@@ -47,6 +45,10 @@ type CheckoutPersistence = {
 };
 
 export class OrdersRepository {
+  constructor(
+    private readonly queries: OrdersQueriesRepository = ordersQueriesRepository,
+    private readonly lifecycle: OrdersLifecycleRepository = ordersLifecycleRepository,
+  ) {}
   createFromCart(
     userId: string,
     input: CheckoutOrderRequest,
@@ -166,7 +168,6 @@ export class OrdersRepository {
       if (persistence.cashOnDelivery) {
         await outboxRepository.create(
           createOrderNotificationOutboxEvent(
-            "order.placed",
             persistence.notification,
             {
               orderId: order.id,
@@ -298,7 +299,6 @@ export class OrdersRepository {
       if (persistence.cashOnDelivery) {
         await outboxRepository.create(
           createOrderNotificationOutboxEvent(
-            "order.placed",
             persistence.notification,
             {
               orderId: order.id,
@@ -317,6 +317,8 @@ export class OrdersRepository {
   attachPaymobIntention(
     orderId: string,
     input: {
+      paymentId: string;
+      expectedPaymentUpdatedAt: Date;
       metadata: Prisma.InputJsonObject;
       userId: string;
       emailRecipient: string;
@@ -324,14 +326,25 @@ export class OrdersRepository {
     },
   ) {
     return prisma.$transaction(async (tx) => {
-      const order = await tx.order.update({
+      const attached = await tx.payment.updateMany({
+        where: {
+          id: input.paymentId,
+          orderId,
+          status: "pending",
+          updatedAt: input.expectedPaymentUpdatedAt,
+          order: { status: "pending" },
+        },
+        data: { metadata: input.metadata },
+      });
+
+      if (attached.count !== 1) return null;
+
+      const order = await tx.order.findUniqueOrThrow({
         where: { id: orderId },
-        data: { payment: { update: { metadata: input.metadata } } },
         include: orderInclude,
       });
       await outboxRepository.create(
         createOrderNotificationOutboxEvent(
-          "order.placed",
           input.notification,
           {
             orderId: order.id,
@@ -351,7 +364,12 @@ export class OrdersRepository {
     failureReason: string,
   ) {
     return prisma.$transaction(async (tx) => {
-      await cancelFailedPaymobOrder(checkout.order.id, failureReason, tx);
+      const cancelled = await cancelFailedPaymobOrder(
+        checkout.order.id,
+        failureReason,
+        tx,
+      );
+      if (!cancelled) return false;
       await restoreOrderStock(checkout.order.items, tx);
 
       for (const item of checkout.order.items) {
@@ -370,6 +388,8 @@ export class OrdersRepository {
           update: { quantity: { increment: item.quantity } },
         });
       }
+
+      return true;
     });
   }
 
@@ -378,62 +398,35 @@ export class OrdersRepository {
     failureReason: string,
   ) {
     return prisma.$transaction(async (tx) => {
-      await cancelFailedPaymobOrder(checkout.order.id, failureReason, tx);
+      const cancelled = await cancelFailedPaymobOrder(
+        checkout.order.id,
+        failureReason,
+        tx,
+      );
+      if (!cancelled) return false;
       await restoreOrderStock(checkout.order.items, tx);
+      return true;
     });
   }
 
   findCheckoutByIdempotencyKey(userId: string, idempotencyKey: string) {
-    return prisma.order.findFirst({
-      where: { userId, payment: { idempotencyKey } },
-      include: orderInclude,
-    });
+    return this.queries.findCheckoutByIdempotencyKey(userId, idempotencyKey);
   }
 
-  async listForUser(userId: string, query: ListOrdersQuery) {
-    const where = buildOrderWhere(query, userId);
-    const [items, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: orderInclude,
-        skip: (query.page - 1) * query.limit,
-        take: query.limit,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.order.count({ where }),
-    ]);
-
-    return createPaginatedResult(items, total, query);
+  listForUser(userId: string, query: ListOrdersQuery) {
+    return this.queries.listForUser(userId, query);
   }
 
-  async list(query: ListOrdersQuery) {
-    const where = buildOrderWhere(query);
-    const [items, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: orderInclude,
-        skip: (query.page - 1) * query.limit,
-        take: query.limit,
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.order.count({ where }),
-    ]);
-
-    return createPaginatedResult(items, total, query);
+  list(query: ListOrdersQuery) {
+    return this.queries.list(query);
   }
 
   findForUser(userId: string, orderId: string) {
-    return prisma.order.findFirst({
-      where: { id: orderId, userId },
-      include: orderInclude,
-    });
+    return this.queries.findForUser(userId, orderId);
   }
 
   findById(orderId: string) {
-    return prisma.order.findUnique({
-      where: { id: orderId },
-      include: orderInclude,
-    });
+    return this.queries.findById(orderId);
   }
 
   updateStatus(
@@ -443,186 +436,24 @@ export class OrdersRepository {
     changedBy?: string,
     audit?: AuditContext,
   ) {
-    return prisma.$transaction(async (tx) => {
-      const data: Prisma.OrderUpdateInput = {
-        status: input.status,
-        statusHistory: {
-          create: {
-            actorType: "staff",
-            changedBy: changedBy ?? null,
-            previousStatus: current.status,
-            newStatus: input.status,
-            note: input.note ?? null,
-          },
-        },
-        ...(input.status === "completed" ? { completedAt: new Date() } : {}),
-        ...(input.status === "cancelled" ? { cancelledAt: new Date() } : {}),
-      };
-
-      await tx.order.update({ where: { id: current.id }, data });
-
-      if (
-        input.status === "cancelled" &&
-        shouldRestoreStockOnCancellation({
-          previousOrderStatus: current.status,
-          paymentStatus: current.payment?.status,
-        })
-      ) {
-        await restoreOrderStock(current.items, tx);
-      }
-
-      if (input.status === "cancelled" && current.payment) {
-        await tx.payment.update({
-          where: { orderId: current.id },
-          data: isCashOnDelivery(current.payment.paymentMethod)
-            ? {
-                status: "cancelled",
-                failureReason: "Cash on delivery order cancelled",
-              }
-            : {
-                status: "failed",
-                failureReason: "Order cancelled before payment",
-              },
-        });
-      }
-
-      if (
-        input.status === "completed" &&
-        current.payment &&
-        isCashOnDelivery(current.payment.paymentMethod)
-      ) {
-        await tx.payment.update({
-          where: { orderId: current.id },
-          data: {
-            status: "paid",
-            paidAt: new Date(),
-            failureReason: null,
-          },
-        });
-      }
-
-      if (audit) {
-        await auditLogsRepository.create(
-          {
-            ...audit,
-            action: "order.status.update",
-            resourceType: "order",
-            resourceId: current.id,
-            metadata: {
-              previousStatus: current.status,
-              newStatus: input.status,
-              note: input.note ?? null,
-            },
-          },
-          tx,
-        );
-      }
-
-      await outboxRepository.create(
-        createOrderNotificationOutboxEvent(
-          "order.status.changed",
-          notification,
-          {
-            orderId: current.id,
-            userId: current.userId,
-            emailRecipient: current.user.email,
-          },
-        ),
-        tx,
-      );
-
-      return tx.order.findUniqueOrThrow({
-        where: { id: current.id },
-        include: orderInclude,
-      });
-    });
+    return this.lifecycle.updateStatus(
+      current,
+      input,
+      notification,
+      changedBy,
+      audit,
+    );
   }
 
   findAwaitingPaymentCandidates(limit: number) {
-    return prisma.order.findMany({
-      where: { status: "pending", payment: { status: "pending" } },
-      include: {
-        user: { select: { id: true, email: true } },
-        items: true,
-        payment: true,
-      },
-      orderBy: { createdAt: "asc" },
-      take: limit,
-    });
+    return this.queries.findAwaitingPaymentCandidates(limit);
   }
 
-  expireAwaitingPayment(
-    orderId: string,
+  async expireAwaitingPayment(
+    current: AwaitingPaymentOrder,
     notification: OrderNotificationIntent,
   ) {
-    return prisma.$transaction(async (tx) => {
-      const current = await tx.order.findUnique({
-        where: { id: orderId },
-        include: {
-          user: { select: { id: true, email: true } },
-          items: true,
-          payment: true,
-        },
-      });
-
-      if (
-        !current ||
-        current.status !== "pending" ||
-        current.payment?.status !== "pending"
-      ) {
-        return false;
-      }
-
-      await tx.order.update({
-        where: { id: current.id },
-        data: {
-          status: "cancelled",
-          cancelledAt: new Date(),
-          statusHistory: {
-            create: {
-              actorType: "system",
-              previousStatus: "pending",
-              newStatus: "cancelled",
-              note: "Payment window expired",
-            },
-          },
-          payment: {
-            update: {
-              status: "failed",
-              failureReason: "Payment window expired",
-            },
-          },
-        },
-      });
-      await restoreOrderStock(current.items, tx);
-      await auditLogsRepository.create(
-        {
-          actorType: "system",
-          action: "order.expired",
-          resourceType: "order",
-          resourceId: current.id,
-          metadata: {
-            orderNumber: current.orderNumber,
-            paymentId: current.payment.id,
-          },
-        },
-        tx,
-      );
-      await outboxRepository.create(
-        createOrderNotificationOutboxEvent(
-          "order.expired",
-          notification,
-          {
-            orderId: current.id,
-            userId: current.userId,
-            emailRecipient: current.user.email,
-          },
-        ),
-        tx,
-      );
-
-      return true;
-    });
+    return this.lifecycle.expireAwaitingPayment(current, notification);
   }
 }
 
@@ -641,141 +472,56 @@ function createInitialPaymentMetadata(
       };
 }
 
-function buildOrderWhere(
-  query: ListOrdersQuery,
-  userId?: string,
-): Prisma.OrderWhereInput {
-  const where: Prisma.OrderWhereInput = userId ? { userId } : {};
-
-  if (userId) {
-    where.NOT = [
-      { status: "pending" },
-      {
-        status: { in: ["payment_failed", "cancelled"] },
-        payment: {
-          is: {
-            provider: "paymob",
-            status: "failed",
-          },
-        },
-      },
-    ];
-  }
-
-  if (query.status) where.status = query.status;
-  if (query.paymentMethod) {
-    where.payment = { paymentMethod: query.paymentMethod };
-  }
-  if (query.q) {
-    where.OR = [
-      { orderNumber: { contains: query.q, mode: "insensitive" } },
-      { user: { email: { contains: query.q, mode: "insensitive" } } },
-      { user: { name: { contains: query.q, mode: "insensitive" } } },
-    ];
-  }
-
-  return where;
-}
-
-function assertAvailableItems(
-  items: Array<{
-    product: {
-      name: string;
-      isDeleted: boolean;
-      stockQuantity: number;
-    };
-    quantity: number;
-  }>,
-): void {
-  for (const item of items) {
-    if (item.product.isDeleted) {
-      throw conflictError(
-        "PRODUCT_UNAVAILABLE",
-        `${item.product.name} is unavailable`,
-      );
-    }
-    if (item.product.stockQuantity < item.quantity) {
-      throw conflictError(
-        "INSUFFICIENT_STOCK",
-        `${item.product.name} does not have enough stock`,
-      );
-    }
-  }
-}
-
-async function decrementStock(
-  items: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-  }>,
-  tx: Prisma.TransactionClient,
-): Promise<void> {
-  for (const item of items) {
-    const result = await tx.product.updateMany({
-      where: {
-        id: item.productId,
-        stockQuantity: { gte: item.quantity },
-      },
-      data: { stockQuantity: { decrement: item.quantity } },
-    });
-
-    if (result.count !== 1) {
-      throw conflictError(
-        "INSUFFICIENT_STOCK",
-        `${item.productName} does not have enough stock`,
-      );
-    }
-  }
-}
-
-async function restoreOrderStock(
-  items: Array<{ productId: string; quantity: number }>,
-  tx: Prisma.TransactionClient,
-): Promise<void> {
-  for (const item of items) {
-    await tx.product.update({
-      where: { id: item.productId },
-      data: { stockQuantity: { increment: item.quantity } },
-    });
-  }
-}
-
 async function cancelFailedPaymobOrder(
   orderId: string,
   failureReason: string,
   tx: Prisma.TransactionClient,
-): Promise<void> {
-  await tx.order.update({
-    where: { id: orderId },
+): Promise<boolean> {
+  const payment = await tx.payment.updateMany({
+    where: { orderId, status: "pending", order: { status: "pending" } },
     data: {
-      status: "cancelled",
-      statusHistory: {
-        create: {
-          actorType: "system",
-          previousStatus: "pending",
-          newStatus: "cancelled",
-          note: "Paymob intention creation failed",
-        },
-      },
-      payment: {
-        update: {
-          status: "failed",
-          failureReason,
-        },
-      },
+      status: "failed",
+      failureReason,
     },
   });
+
+  if (payment.count !== 1) return false;
+
+  const order = await tx.order.updateMany({
+    where: { id: orderId, status: "pending" },
+    data: { status: "cancelled", cancelledAt: new Date() },
+  });
+
+  if (order.count !== 1) {
+    await tx.payment.updateMany({
+      where: { orderId, status: "failed", failureReason },
+      data: { status: "pending", failureReason: null },
+    });
+    return false;
+  }
+
+  await tx.orderStatusHistory.create({
+    data: {
+      orderId,
+      actorType: "system",
+      previousStatus: "pending",
+      newStatus: "cancelled",
+      note: "Paymob intention creation failed",
+    },
+  });
+
+  return true;
 }
 
-export type OrderWithDetails = Prisma.OrderGetPayload<{
-  include: typeof orderInclude;
-}>;
 export type CreatedCartCheckout = Awaited<
   ReturnType<OrdersRepository["createFromCart"]>
 >;
 export type CreatedBuyNowCheckout = Awaited<
   ReturnType<OrdersRepository["createBuyNow"]>
 >;
+export type {
+  AwaitingPaymentOrder,
+  OrderWithDetails,
+} from "./orders.persistence.js";
 
 export const ordersRepository = new OrdersRepository();

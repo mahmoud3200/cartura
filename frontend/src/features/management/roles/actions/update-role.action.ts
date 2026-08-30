@@ -1,27 +1,37 @@
 "use server";
 
 import {
+  updateRolePermissionsRequestSchema,
   updateRoleRequestSchema,
+  type UpdateRolePermissionsRequest,
   type UpdateRoleRequest,
 } from "@cartura/contracts/authorization";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
   type ManagementActionResult,
 } from "@/features/management/shared/lib/action-result";
 
-import { updateManagementRole } from "../api/roles-api";
+import {
+  updateManagementRole,
+  updateManagementRolePermissions,
+} from "../api/roles-api";
 
 type UpdateRoleActionInput = {
   roleId: string;
   role: UpdateRoleRequest;
+  permissions: UpdateRolePermissionsRequest;
 };
 
-const updateRoleActionSchema = z.object({
-  roleId: z.uuid(),
-  role: updateRoleRequestSchema,
-});
+const updateRoleActionSchema = z
+  .object({
+    roleId: z.uuid(),
+    role: updateRoleRequestSchema,
+    permissions: updateRolePermissionsRequestSchema,
+  })
+  .strict();
 
 export async function updateRoleAction(
   input: UpdateRoleActionInput,
@@ -33,7 +43,12 @@ export async function updateRoleAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     await updateManagementRole(parsed.data);
+    await updateManagementRolePermissions({
+      roleId: parsed.data.roleId,
+      permissions: parsed.data.permissions,
+    });
     return { ok: true, data: null };
   } catch (error) {
     return managementActionFailure(error);

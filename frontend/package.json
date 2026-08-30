@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "node scripts/wait-for-api.mjs && next dev --webpack",
+    "dev:immediate": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -11,6 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.35.8",
+    "@vercel/oidc": "^3.0.6",
     "@base-ui/react": "^1.6.0",
     "@cartura/contracts": "workspace:*",
     "@gsap/react": "^2.1.2",

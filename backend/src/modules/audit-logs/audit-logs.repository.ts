@@ -12,7 +12,7 @@ import type { RecordAuditLogInput } from "./audit-logs.types.js";
 
 type PrismaExecutor = PrismaClient | Prisma.TransactionClient;
 
-const auditLogInclude = {
+export const auditLogInclude = {
   actor: {
     select: {
       id: true,
@@ -34,7 +34,7 @@ export class AuditLogsRepository {
         where,
         skip,
         take,
-        orderBy: [{ createdAt: "desc" }],
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: auditLogInclude,
       }),
       prisma.auditLog.count({ where }),
@@ -43,10 +43,27 @@ export class AuditLogsRepository {
     return createPaginatedResult(items, total, query);
   }
 
-  create(input: RecordAuditLogInput, client: PrismaExecutor = prisma) {
+  async create(input: RecordAuditLogInput, client: PrismaExecutor = prisma) {
+    const actorSnapshot = input.actorUserId
+      ? await client.user.findUnique({
+          where: { id: input.actorUserId },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        })
+      : null;
     const data: Prisma.AuditLogUncheckedCreateInput = {
       actorUserId: input.actorUserId ?? null,
       actorType: input.actorType,
+      actorIdSnapshot: actorSnapshot?.id ?? null,
+      actorNameSnapshot: actorSnapshot?.name ?? null,
+      actorFirstNameSnapshot: actorSnapshot?.firstName ?? null,
+      actorLastNameSnapshot: actorSnapshot?.lastName ?? null,
+      actorEmailSnapshot: actorSnapshot?.email ?? null,
       action: input.action,
       resourceType: input.resourceType,
       resourceId: input.resourceId ?? null,
@@ -78,6 +95,10 @@ export function buildAuditLogWhere(
   if (query.q !== undefined) {
     where.OR = [
       { actorType: { contains: query.q, mode: "insensitive" } },
+      { actorNameSnapshot: { contains: query.q, mode: "insensitive" } },
+      { actorFirstNameSnapshot: { contains: query.q, mode: "insensitive" } },
+      { actorLastNameSnapshot: { contains: query.q, mode: "insensitive" } },
+      { actorEmailSnapshot: { contains: query.q, mode: "insensitive" } },
       {
         actor: {
           is: {
@@ -111,3 +132,7 @@ export function buildAuditLogWhere(
 }
 
 export const auditLogsRepository = new AuditLogsRepository();
+
+export type AuditLogWithActor = Prisma.AuditLogGetPayload<{
+  include: typeof auditLogInclude;
+}>;

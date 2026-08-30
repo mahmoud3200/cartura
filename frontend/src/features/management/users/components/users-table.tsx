@@ -63,7 +63,7 @@ export function UsersTable({
             </p>
           </ManagementTableCell>
           <p className="text-muted-foreground">
-            {user.role.name.replaceAll("_", " ")}
+            {user.role?.name.replaceAll("_", " ") ?? "Unassigned"}
           </p>
           <StatusBadge status={user.accountStatus} />
           <p className="text-xs text-muted-foreground">
@@ -75,10 +75,10 @@ export function UsersTable({
               actingUserId,
               actingRoleName,
               targetUserId: user.id,
-              targetRoleName: user.role.name,
+              targetRoleName: user.role?.name ?? "",
             }) ? (
               <UserRoleManager
-                key={user.role.id}
+                key={user.role?.id ?? "unassigned"}
                 userId={user.id}
                 userName={user.name}
                 role={user.role}

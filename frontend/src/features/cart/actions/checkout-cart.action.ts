@@ -6,6 +6,7 @@ import {
 } from "@cartura/contracts/orders";
 
 import { ApiError } from "@/shared/api/server-api";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { checkoutCustomerCart } from "../api/cart-api";
 import type { CartActionResult } from "../types";
@@ -26,6 +27,7 @@ export async function checkoutCartAction(
   }
 
   try {
+    await enforceBffRateLimit("checkout");
     const checkout = await checkoutCustomerCart(parsed.data);
 
     return {

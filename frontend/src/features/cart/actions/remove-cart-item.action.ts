@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { removeCustomerCartItem } from "../api/cart-api";
 import type { CartMutationResult } from "../types";
@@ -16,9 +17,9 @@ export async function removeCartItemAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     return { ok: true, data: await removeCustomerCartItem(parsed.data) };
   } catch (error) {
     return cartActionFailure(error);
   }
 }
-

@@ -7,6 +7,7 @@ import {
 } from "@cartura/contracts/orders";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -26,6 +27,7 @@ export async function updateOrderStatusAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const order = await updateManagementOrderStatus(id.data, body.data);
     revalidatePath("/dashboard/orders");
     return { ok: true, data: order };

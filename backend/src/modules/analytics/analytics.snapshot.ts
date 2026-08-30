@@ -5,7 +5,6 @@ import { REFUND_STATUSES } from "@cartura/contracts/refunds";
 import type { AnalyticsRangeData } from "./analytics.repository.js";
 import type { AnalyticsRangeSnapshot } from "./analytics.types.js";
 import {
-  decimalToNumber,
   roundMoney,
   type AnalyticsDateRange,
 } from "./analytics.utils.js";
@@ -63,9 +62,9 @@ function buildRevenue(
   for (const row of grossRows) {
     byCurrency.set(row.currency, {
       currency: row.currency,
-      gross: decimalToNumber(row._sum.amount),
+      gross: row.amount,
       refunded: 0,
-      paidOrders: row._count._all,
+      paidOrders: row.paidOrders,
     });
   }
 
@@ -77,7 +76,7 @@ function buildRevenue(
       paidOrders: 0,
     };
 
-    current.refunded = decimalToNumber(row._sum.amount);
+    current.refunded = row.amount;
     byCurrency.set(row.currency, current);
   }
 

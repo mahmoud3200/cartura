@@ -1,0 +1,3 @@
+-- `user_roles.user_id` has been the primary key since the initial schema,
+-- so the one-role-per-user invariant is already enforced.  This migration
+-- records that invariant in migration history without changing live data.

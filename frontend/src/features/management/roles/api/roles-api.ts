@@ -2,6 +2,7 @@ import "server-only";
 
 import type {
   CreateRoleRequest,
+  UpdateRolePermissionsRequest,
   UpdateRoleRequest,
 } from "@cartura/contracts/authorization";
 import {
@@ -63,6 +64,20 @@ export async function updateManagementRole(input: {
     {
       method: "PATCH",
       json: input.role,
+    },
+  );
+}
+
+export async function updateManagementRolePermissions(input: {
+  roleId: string;
+  permissions: UpdateRolePermissionsRequest;
+}) {
+  return fetchManagementData(
+    `/api/v1/management/authorization/roles/${input.roleId}/permissions`,
+    roleSchema,
+    {
+      method: "PUT",
+      json: input.permissions,
     },
   );
 }

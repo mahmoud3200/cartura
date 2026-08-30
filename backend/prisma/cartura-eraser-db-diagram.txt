@@ -1,6 +1,8 @@
 users [icon: user, color: lightblue] {
   id UUID7 pk
   name string
+  first_name string
+  last_name string
   email string unique
   email_verified boolean
   image string nullable
@@ -10,6 +12,21 @@ users [icon: user, color: lightblue] {
   suspended_until datetime nullable
   created_at datetime
   updated_at datetime
+}
+
+auth_rate_limits [icon: gauge, color: gray] {
+  id UUID7 pk
+  key string unique
+  count int
+  last_request bigint
+}
+
+jwks [icon: key, color: gray] {
+  id string pk
+  publicKey string
+  privateKey string
+  createdAt datetime
+  expiresAt datetime nullable
 }
 
 auth_sessions [icon: key, color: gray] {
@@ -108,7 +125,7 @@ categories [icon: folder-tree, color: green] {
   description string nullable
   image_url string nullable
   image_asset_id UUID nullable unique fk
-  is_active boolean
+  is_deleted boolean
   created_by UUID nullable fk
   created_at datetime
   updated_at datetime
@@ -117,12 +134,12 @@ categories [icon: folder-tree, color: green] {
 products [icon: package, color: green] {
   id UUID7 pk
   name string
-  slug string unique
+  slug string "unique while not deleted"
   description string nullable
-  sku string unique
+  sku string "unique while not deleted"
   price decimal ">= 0"
   stock_quantity int ">= 0"
-  is_active boolean
+  is_deleted boolean
   created_by UUID nullable fk
   created_at datetime
   updated_at datetime
@@ -131,6 +148,7 @@ products [icon: package, color: green] {
 product_categories [icon: link, color: green] {
   product_id UUID pk fk
   category_id UUID pk fk
+  is_direct boolean "direct assignment vs derived ancestor"
 }
 
 product_images [icon: image, color: green] {
@@ -151,17 +169,20 @@ media_assets [icon: image-up, color: cyan] {
   secure_url string
   canonical_url string
   usage string "product_image|category_banner"
-  status string "pending|attached"
+  status string "pending|attached|deleting"
   mime_type string
   format string
   bytes int
   width int
   height int
+  edit_spec json nullable
   variants json nullable
   uploaded_by UUID nullable fk
   attached_resource_type string nullable
   attached_resource_id UUID nullable
   attached_at datetime nullable
+  pending_expires_at datetime nullable
+  deletion_claimed_at datetime nullable
   created_at datetime
   updated_at datetime
 }
@@ -257,6 +278,8 @@ payment_webhook_events [icon: webhook, color: teal] {
   event_type string
   status string "pending|processing|processed|failed|ignored"
   attempts int ">= 0"
+  claim_token UUID nullable
+  claimed_at datetime nullable
   payload json
   failure_reason string nullable
   received_at datetime
@@ -267,12 +290,20 @@ refunds [icon: rotate-ccw, color: teal] {
   id UUID7 pk
   payment_id UUID fk
   initiated_by UUID nullable fk
+  reviewed_by UUID nullable fk
   provider_refund_id string nullable
   amount decimal "> 0"
   currency string "ISO-4217 uppercase"
   status string "pending|processing|completed|failed|cancelled"
   reason string nullable
+  reason_code string nullable
+  review_note string nullable
+  resolution string nullable
+  refund_method string
   failure_reason string nullable
+  pickup_scheduled_at datetime nullable
+  item_received_at datetime nullable
+  reviewed_at datetime nullable
   created_at datetime
   updated_at datetime
   completed_at datetime nullable
@@ -281,6 +312,7 @@ refunds [icon: rotate-ccw, color: teal] {
 
 notifications [icon: bell, color: pink] {
   id UUID7 pk
+  source_event_id UUID nullable unique
   user_id UUID fk
   type string
   title string
@@ -295,8 +327,10 @@ notification_deliveries [icon: send, color: pink] {
   notification_id UUID fk
   channel string
   recipient string
-  status string "pending|sent|failed|cancelled"
+  status string "pending|processing|sent|failed|cancelled"
   attempts int ">= 0"
+  claim_token UUID nullable
+  claimed_at datetime nullable
   provider_message_id string nullable
   failure_reason string nullable
   scheduled_at datetime nullable
@@ -309,6 +343,11 @@ audit_logs [icon: file-search, color: slate] {
   id UUID7 pk
   actor_user_id UUID nullable fk
   actor_type string
+  actor_id_snapshot UUID nullable
+  actor_name_snapshot string nullable
+  actor_first_name_snapshot string nullable
+  actor_last_name_snapshot string nullable
+  actor_email_snapshot string nullable
   action string
   resource_type string
   resource_id string nullable
@@ -327,10 +366,13 @@ outbox_events [icon: inbox, color: slate] {
   payload json
   status string "pending|processing|processed|failed|cancelled"
   attempts int ">= 0"
+  claim_token UUID nullable
+  claimed_at datetime nullable
   available_at datetime
   processed_at datetime nullable
   last_error string nullable
   created_at datetime
+  updated_at datetime
 }
 
 db_integrity_rules [icon: shield-check, color: red] {
@@ -340,6 +382,7 @@ db_integrity_rules [icon: shield-check, color: red] {
   numeric_money_stock_quantity_checks postgres_check_constraints
   status_value_checks postgres_check_constraints
   currency_format_checks postgres_check_constraints
+  processing_claim_consistency_checks postgres_check_constraints
 }
 
 users.id < auth_sessions.user_id
@@ -377,6 +420,7 @@ orders.id - payments.order_id
 payments.id < payment_webhook_events.payment_id
 payments.id < refunds.payment_id
 users.id < refunds.initiated_by
+users.id < refunds.reviewed_by
 
 users.id < notifications.user_id
 notifications.id < notification_deliveries.notification_id

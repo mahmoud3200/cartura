@@ -5,6 +5,7 @@ import {
   createManagementProduct,
   deleteManagementProduct,
   updateManagementProduct,
+  updateManagementProductInventory,
 } from "../api/products-api";
 import { createProductAction } from "./create-product.action";
 import { deleteProductAction } from "./delete-product.action";
@@ -14,6 +15,7 @@ vi.mock("../api/products-api", () => ({
   createManagementProduct: vi.fn(),
   deleteManagementProduct: vi.fn(),
   updateManagementProduct: vi.fn(),
+  updateManagementProductInventory: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -83,6 +85,39 @@ describe("product actions", () => {
     });
     expect(updateTag).toHaveBeenCalledOnce();
     expect(updateTag).toHaveBeenCalledWith("catalog:products");
+  });
+
+  it("updates inventory through the permission-specific endpoint", async () => {
+    const update = { name: "Mini Zip Hoodie" };
+    const inventory = { stockQuantity: 6 };
+    vi.mocked(updateManagementProduct).mockResolvedValue({
+      ...product,
+      ...update,
+    });
+    vi.mocked(updateManagementProductInventory).mockResolvedValue({
+      ...product,
+      ...update,
+      ...inventory,
+    });
+
+    await expect(
+      updateProductAction({
+        productId: product.id,
+        product: update,
+        inventory,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      data: { ...product, ...update, ...inventory },
+    });
+    expect(updateManagementProduct).toHaveBeenCalledWith({
+      productId: product.id,
+      product: update,
+    });
+    expect(updateManagementProductInventory).toHaveBeenCalledWith({
+      productId: product.id,
+      inventory,
+    });
   });
 
   it("updates the product cache tag after deletion", async () => {

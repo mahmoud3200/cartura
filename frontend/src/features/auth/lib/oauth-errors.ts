@@ -9,6 +9,8 @@ const oauthErrorMessages: Record<string, string> = {
     "Google could not validate the authorization. Confirm that the client ID and secret belong to the same OAuth client.",
   no_code:
     "Google did not return an authorization code. Start the sign-up again and complete the consent screen.",
+  missing_session:
+    "Google completed sign-in, but Cartura could not create your session. Please try again.",
   signup_disabled:
     "New accounts cannot currently be created with Google.",
   state_mismatch:

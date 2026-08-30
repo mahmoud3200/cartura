@@ -12,7 +12,6 @@ export function requirePermissions(
     try {
       const userId = getOptionalAuthenticatedUserId(req);
 
-      // only if SOMEHOW the authentication middleware didn't work
       if (!userId) {
         next(httpError(
           500,

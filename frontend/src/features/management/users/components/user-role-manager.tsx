@@ -1,6 +1,9 @@
 "use client";
 
-import type { UserRoleOption } from "@cartura/contracts/authorization";
+import {
+  SYSTEM_ROLES,
+  type UserRoleOption,
+} from "@cartura/contracts/authorization";
 import type { UserRole } from "@cartura/contracts/users";
 import { LoaderCircle, UserRoundCog } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -35,15 +38,15 @@ export function UserRoleManager({
 }: {
   userId: string;
   userName: string;
-  role: UserRole;
+  role: UserRole | null;
   roleOptions: UserRoleOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [selectedRoleId, setSelectedRoleId] = useState(role.id);
+  const [selectedRoleId, setSelectedRoleId] = useState(role?.id ?? "");
   const [isPending, startTransition] = useTransition();
-  const isProtected = role.name === "super_admin";
-  const hasChanged = selectedRoleId !== role.id;
+  const isProtected = role?.name === SYSTEM_ROLES.SUPER_ADMIN;
+  const hasChanged = !!selectedRoleId && selectedRoleId !== role?.id;
   const selectedRole = roleOptions.find(
     (option) => option.id === selectedRoleId,
   );
@@ -74,7 +77,7 @@ export function UserRoleManager({
                 Current role
               </p>
               <p className="mt-1 text-sm font-medium capitalize">
-                {role.name.replaceAll("_", " ")}
+                {role?.name.replaceAll("_", " ") ?? "Unassigned"}
               </p>
             </div>
 
@@ -102,7 +105,7 @@ export function UserRoleManager({
                       disabled={roleOptions.length === 0}
                     >
                       <span className="truncate capitalize">
-                        {(selectedRole?.name ?? role.name).replaceAll("_", " ")}
+                        {(selectedRole?.name ?? role?.name ?? "Choose a role").replaceAll("_", " ")}
                       </span>
                     </SelectTrigger>
                     <SelectPortal>

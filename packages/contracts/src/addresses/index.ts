@@ -18,19 +18,21 @@ const postalCodeSchema = z
   .max(30)
   .regex(/^\d*$/, "Postal code must contain numbers only");
 
-export const createAddressRequestSchema = z.object({
-  addressName: textSchema(2, 80),
-  recipientName: textSchema(2, 120),
-  phoneNumber: phoneNumberSchema,
-  country: textSchema(2, 80),
-  city: textSchema(2, 80),
-  area: textSchema(1, 120),
-  streetAddress: textSchema(5, 250),
-  postalCode: postalCodeSchema
-    .transform((value) => (value.length === 0 ? undefined : value))
-    .optional(),
-  isDefault: z.boolean().optional(),
-});
+export const createAddressRequestSchema = z
+  .object({
+    addressName: textSchema(2, 80),
+    recipientName: textSchema(2, 120),
+    phoneNumber: phoneNumberSchema,
+    country: textSchema(2, 80),
+    city: textSchema(2, 80),
+    area: textSchema(1, 120),
+    streetAddress: textSchema(5, 250),
+    postalCode: postalCodeSchema
+      .transform((value) => (value.length === 0 ? undefined : value))
+      .optional(),
+    isDefault: z.boolean().optional(),
+  })
+  .strict();
 
 export const updateAddressRequestSchema = z
   .object({
@@ -41,8 +43,12 @@ export const updateAddressRequestSchema = z
     city: textSchema(2, 80).optional(),
     area: textSchema(1, 120).optional(),
     streetAddress: textSchema(5, 250).optional(),
-    postalCode: postalCodeSchema.nullable().optional(),
+    postalCode: postalCodeSchema
+      .transform((value) => (value.length === 0 ? null : value))
+      .nullable()
+      .optional(),
   })
+  .strict()
   .refine((input) => Object.keys(input).length > 0, {
     message: "At least one field is required",
   });
@@ -59,9 +65,13 @@ export const addressResponseSchema = z.object({
   streetAddress: z.string(),
   postalCode: z.string().nullable(),
   isDefault: z.boolean(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
+
+export const addressIdParamsSchema = z
+  .object({ addressId: z.uuid() })
+  .strict();
 
 export const addressDataResponseSchema = dataResponseSchema(addressResponseSchema);
 export const addressListResponseSchema = dataListResponseSchema(addressResponseSchema);

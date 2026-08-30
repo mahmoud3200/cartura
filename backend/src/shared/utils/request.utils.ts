@@ -28,9 +28,3 @@ export function setAuthenticatedPrincipal(
 ): void {
   (req as AuthenticatedRequest).principal = principal;
 }
-
-export function getPathParam(
-  value: string | string[] | undefined,
-): string {
-  return typeof value === "string" ? value : "";
-}

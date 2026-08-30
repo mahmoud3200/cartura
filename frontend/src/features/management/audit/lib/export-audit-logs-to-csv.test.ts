@@ -6,7 +6,7 @@ import { createAuditLogsCsv } from "./export-audit-logs-to-csv";
 const log: AuditLog = {
   id: "0198a850-2479-7bd8-a8e5-bf2345c60f11",
   actorUserId: "0198a850-2479-7bd8-a8e5-bf2345c60f12",
-  actorType: "staff",
+  actorType: "user",
   actor: {
     id: "0198a850-2479-7bd8-a8e5-bf2345c60f12",
     name: "Mona, Ali",

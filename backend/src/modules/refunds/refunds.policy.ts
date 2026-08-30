@@ -20,12 +20,20 @@ export function isReturnRequestWithinEligibilityWindow(
   },
   now = new Date(),
 ): boolean {
-  return (
-    isWithinRefundWindow(input.completedAt, now) ||
-    (input.latestRejectedAt
-      ? isWithinRefundWindow(input.latestRejectedAt, now)
-      : false)
-  );
+  return now.getTime() <= getReturnRequestEligibilityDeadline(input).getTime();
+}
+
+export function getReturnRequestEligibilityDeadline(input: {
+  completedAt: Date;
+  latestRejectedAt?: Date | null | undefined;
+}): Date {
+  const latestEligibilityAnchor = input.latestRejectedAt
+    ? new Date(
+        Math.max(input.completedAt.getTime(), input.latestRejectedAt.getTime()),
+      )
+    : input.completedAt;
+
+  return getRefundEligibilityDeadline(latestEligibilityAnchor);
 }
 
 export function getRefundMethod(paymentMethod: string): "card" | "cash" {
@@ -45,8 +53,10 @@ export function canExecuteRefund(input: {
   resolution: string | null;
 }): boolean {
   return (
-    (input.resolution === "keep_item" && input.status === "approved") ||
-    (input.resolution === "pickup" && input.status === "item_received")
+    (input.resolution === "keep_item" &&
+      ["approved", "failed"].includes(input.status)) ||
+    (input.resolution === "pickup" &&
+      ["item_received", "failed"].includes(input.status))
   );
 }
 

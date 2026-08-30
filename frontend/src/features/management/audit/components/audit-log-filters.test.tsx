@@ -29,7 +29,7 @@ describe("AuditLogFilters", () => {
       <AuditLogFilters
         resourceType="product"
         action="product.inventory.update"
-        actorType="staff"
+        actorType="user"
       />,
     );
 
@@ -39,6 +39,6 @@ describe("AuditLogFilters", () => {
     expect(screen.getByLabelText("Audit action").textContent).toContain(
       "Update inventory",
     );
-    expect(screen.getByLabelText("Actor type").textContent).toContain("Staff");
+    expect(screen.getByLabelText("Actor type").textContent).toContain("Users");
   });
 });

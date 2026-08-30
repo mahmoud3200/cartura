@@ -2,23 +2,30 @@ import { z } from "zod";
 import { userAccountStatusSchema } from "../users/index.js";
 
 export const authUserSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   firstName: z.string(),
   lastName: z.string(),
   email: z.email(),
   emailVerified: z.boolean(),
-  image: z.string().nullable().optional(),
-  twoFactorEnabled: z.boolean().optional(),
-  accountStatus: userAccountStatusSchema.default("active"),
-  accountStatusReason: z.string().nullable().optional().default(null),
-  suspendedUntil: z
-    .union([z.iso.datetime(), z.date()])
-    .nullable()
-    .optional()
-    .default(null),
-  createdAt: z.iso.datetime().or(z.date()),
-  updatedAt: z.iso.datetime().or(z.date()),
+  image: z.string().nullable(),
+  twoFactorEnabled: z.boolean(),
+  accountStatus: userAccountStatusSchema,
+  accountStatusReason: z.string().nullable(),
+  suspendedUntil: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+
+export const authSessionSchema = z.object({
+  id: z.uuid(),
+  userId: z.uuid(),
+  token: z.string().min(1),
+  expiresAt: z.iso.datetime(),
+  ipAddress: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const restrictedAccountStatusSchema = z.enum([
@@ -37,6 +44,7 @@ export const updateProfileRequestSchema = z
     firstName: z.string().trim().min(1).max(80),
     lastName: z.string().trim().min(1).max(80),
   })
+  .strict()
   .transform((input) => ({
     ...input,
     name: `${input.firstName} ${input.lastName}`,
@@ -46,24 +54,25 @@ export const updateProfileResponseSchema = z.object({
   status: z.literal(true),
 });
 
-export const registerRequestSchema = z.object({
-  firstName: z.string().trim().min(1).max(80),
-  lastName: z.string().trim().min(1).max(80),
-  email: z.email().toLowerCase(),
-  password: z.string().min(8).max(128),
-});
+export const registerRequestSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(80),
+    lastName: z.string().trim().min(1).max(80),
+    email: z.email().toLowerCase(),
+    password: z.string().min(8).max(128),
+  })
+  .strict();
 
 export const signUpEmailRequestSchema = registerRequestSchema.extend({
-  image: z.string().optional(),
-  callbackURL: z.string().optional(),
+  callbackURL: z.url().optional(),
   rememberMe: z.boolean().optional(),
-});
+}).strict();
 
 export const loginRequestSchema = z.object({
   email: z.email().toLowerCase(),
   password: z.string().min(1).max(128),
   rememberMe: z.boolean().optional(),
-});
+}).strict();
 
 export const loginResponseSchema = z.union([
   z.object({
@@ -78,41 +87,42 @@ export const loginResponseSchema = z.union([
   }),
 ]);
 
-export const logoutRequestSchema = z.object({});
+export const logoutRequestSchema = z.object({}).strict();
 
 export const verifyEmailRequestSchema = z.object({
   email: z.email().toLowerCase(),
   code: z.string().length(6),
-});
+}).strict();
 
 export const resendVerificationEmailRequestSchema = z.object({
   email: z.email().toLowerCase(),
-});
+}).strict();
 
 export const forgotPasswordRequestSchema = z.object({
   email: z.email().toLowerCase(),
-});
+}).strict();
 
 export const resetPasswordRequestSchema = z.object({
   email: z.email().toLowerCase(),
   code: z.string().length(6),
   password: z.string().min(8).max(128),
-});
+}).strict();
 
 export const sendTwoFactorOtpRequestSchema = z
   .object({
     trustDevice: z.boolean().optional(),
   })
+  .strict()
   .optional();
 
 export const verifyTwoFactorOtpRequestSchema = z.object({
   code: z.string().length(6),
   trustDevice: z.boolean().optional(),
-});
+}).strict();
 
 export const enableTwoFactorRequestSchema = z.object({
   password: z.string().min(1).max(128),
-});
+}).strict();
 
 export const disableTwoFactorRequestSchema = enableTwoFactorRequestSchema;
 
@@ -123,7 +133,7 @@ export const oauthAuthorizeRequestSchema = z.object({
   callbackURL: z.url(),
   errorCallbackURL: z.url().optional(),
   newUserCallbackURL: z.url().optional(),
-});
+}).strict();
 
 export const oauthAuthorizeResponseSchema = z.object({
   url: z.url(),
@@ -134,11 +144,17 @@ export const authMessageResponseSchema = z.object({
   message: z.string(),
 });
 
-export const authMeResponseSchema = z.object({
-  user: authUserSchema.nullable(),
-});
+// Better Auth returns a session object when authenticated and the JSON literal
+// `null` when no valid session is present.
+export const authMeResponseSchema = z
+  .object({
+    session: authSessionSchema,
+    user: authUserSchema,
+  })
+  .nullable();
 
 export type AuthUser = z.infer<typeof authUserSchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;
 export type AccountRestriction = z.infer<typeof accountRestrictionSchema>;
 export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 export type UpdateProfileResponse = z.infer<typeof updateProfileResponseSchema>;

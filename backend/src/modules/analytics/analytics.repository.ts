@@ -1,10 +1,6 @@
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
-import { refundInclude } from "../refunds/refunds.repository.js";
-import {
-  dateRangeWhere,
-  type AnalyticsDateRange,
-} from "./analytics.utils.js";
+import type { AnalyticsDateRange } from "./analytics.utils.js";
 
 const paidPaymentStatuses = ["paid", "partially_refunded", "refunded"];
 const paymentIssueStatuses = ["failed", "manual_review"];
@@ -16,29 +12,57 @@ const refundActionStatuses = [
   "failed",
 ];
 
-const recentOrderInclude = {
+const recentOrderSelect = {
+  id: true,
+  orderNumber: true,
+  status: true,
+  totalAmount: true,
+  currency: true,
+  createdAt: true,
   user: {
     select: {
-      id: true,
       name: true,
-      firstName: true,
-      lastName: true,
       email: true,
     },
   },
-  address: true,
-  items: true,
-  payment: true,
-  statusHistory: { orderBy: { createdAt: "asc" } },
-} satisfies Prisma.OrderInclude;
+} satisfies Prisma.OrderSelect;
 
-const recentUserInclude = {
-  assignedRole: {
-    include: {
-      role: true,
+const recentUserSelect = {
+  id: true,
+  name: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  accountStatus: true,
+} satisfies Prisma.UserSelect;
+
+const recentRefundSelect = {
+  id: true,
+  amount: true,
+  currency: true,
+  status: true,
+  reasonCode: true,
+  payment: {
+    select: {
+      order: {
+        select: {
+          orderNumber: true,
+          user: { select: { name: true } },
+        },
+      },
     },
   },
-} satisfies Prisma.UserInclude;
+} satisfies Prisma.RefundSelect;
+
+const recentPaymentWebhookEventSelect = {
+  id: true,
+  provider: true,
+  providerEventId: true,
+  eventType: true,
+  status: true,
+  failureReason: true,
+  receivedAt: true,
+} satisfies Prisma.PaymentWebhookEventSelect;
 
 export class AnalyticsRepository {
   async getRangeOverview(range: AnalyticsDateRange) {
@@ -115,8 +139,15 @@ export class AnalyticsRepository {
       ordersByStatus,
       refundsByStatus,
       paymentWebhooksByStatus,
-      grossRevenue,
-      refundedRevenue,
+      grossRevenue: grossRevenue.map((row) => ({
+        currency: row.currency,
+        paidOrders: row._count._all,
+        amount: decimalToNumber(row._sum.amount),
+      })),
+      refundedRevenue: refundedRevenue.map((row) => ({
+        currency: row.currency,
+        amount: decimalToNumber(row._sum.amount),
+      })),
     };
   }
 
@@ -140,22 +171,23 @@ export class AnalyticsRepository {
         },
       }),
       prisma.order.findMany({
-        include: recentOrderInclude,
-        orderBy: { createdAt: "desc" },
+        select: recentOrderSelect,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 6,
       }),
       prisma.user.findMany({
-        include: recentUserInclude,
-        orderBy: { createdAt: "desc" },
+        select: recentUserSelect,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 6,
       }),
       prisma.refund.findMany({
-        include: refundInclude,
-        orderBy: { createdAt: "desc" },
+        select: recentRefundSelect,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 6,
       }),
       prisma.paymentWebhookEvent.findMany({
-        orderBy: { receivedAt: "desc" },
+        select: recentPaymentWebhookEventSelect,
+        orderBy: [{ receivedAt: "desc" }, { id: "desc" }],
         take: 6,
       }),
     ]);
@@ -163,9 +195,15 @@ export class AnalyticsRepository {
     return {
       refundsNeedingAction,
       paymentIssues,
-      recentOrders,
+      recentOrders: recentOrders.map((order) => ({
+        ...order,
+        totalAmount: decimalToNumber(order.totalAmount),
+      })),
       recentUsers,
-      recentRefunds,
+      recentRefunds: recentRefunds.map((refund) => ({
+        ...refund,
+        amount: decimalToNumber(refund.amount),
+      })),
       recentPaymentWebhookEvents,
     };
   }
@@ -180,3 +218,14 @@ export type AnalyticsOperationalData = Awaited<
 >;
 
 export const analyticsRepository = new AnalyticsRepository();
+
+function dateRangeWhere(from: Date | null, to: Date) {
+  return {
+    ...(from ? { gte: from } : {}),
+    lte: to,
+  };
+}
+
+function decimalToNumber(value: Prisma.Decimal | null) {
+  return value ? Number(value) : 0;
+}

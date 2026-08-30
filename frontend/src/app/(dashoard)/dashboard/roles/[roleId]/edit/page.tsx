@@ -1,3 +1,5 @@
+import { PERMISSIONS } from "@cartura/contracts/authorization";
+
 import {
   getManagementRole,
   listManagementPermissions,
@@ -20,8 +22,8 @@ export default async function EditRolePage({
 
   const currentPermissions = await listCurrentManagementPermissionNames();
   const canUpdateRole =
-    currentPermissions.includes("roles.update") &&
-    currentPermissions.includes("roles.permissions.update");
+    currentPermissions.includes(PERMISSIONS.ROLES_UPDATE) &&
+    currentPermissions.includes(PERMISSIONS.ROLES_UPDATE_PERMISSIONS);
 
   if (!canUpdateRole) {
     return (

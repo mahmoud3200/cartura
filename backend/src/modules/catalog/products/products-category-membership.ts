@@ -5,19 +5,26 @@ type CategoryHierarchyReader = {
   countActiveByIds(categoryIds: string[]): PromiseLike<number>;
 };
 
-export async function expandActiveProductCategoryIds(
+export type ProductCategoryMembership = {
+  directIds: string[];
+  expandedIds: string[];
+};
+
+export async function resolveActiveProductCategoryMembership(
   categoryIds: string[],
   hierarchy: CategoryHierarchyReader,
-) {
-  if (categoryIds.length === 0) return [];
+): Promise<ProductCategoryMembership> {
+  if (categoryIds.length === 0) {
+    return { directIds: [], expandedIds: [] };
+  }
 
-  const uniqueIds = [...new Set(categoryIds)];
-  const expandedIds = await hierarchy.expandWithAncestorIds(uniqueIds);
+  const directIds = [...new Set(categoryIds)];
+  const expandedIds = await hierarchy.expandWithAncestorIds(directIds);
   const activeCount = await hierarchy.countActiveByIds(expandedIds);
 
   if (activeCount !== expandedIds.length) {
     throw notFoundError("One or more categories");
   }
 
-  return expandedIds;
+  return { directIds, expandedIds };
 }

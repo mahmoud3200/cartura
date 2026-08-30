@@ -34,15 +34,17 @@ export class AddressesService {
   }
 
   async create(userId: string, input: CreateAddressRequest) {
-    const addressCount = await this.repository.countByUserId(userId);
+    const result = await this.repository.createWithInvariants(
+      userId,
+      input,
+      maxAddressesPerUser,
+    );
 
-    if (addressCount >= maxAddressesPerUser) {
+    if (result.kind === "limit_reached") {
       throw addressLimitExceededError();
     }
 
-    const isDefault = addressCount === 0 || input.isDefault === true;
-
-    return this.repository.create(userId, input, isDefault);
+    return result.address;
   }
 
   async update(

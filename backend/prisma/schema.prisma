@@ -57,6 +57,16 @@ model AuthVerification {
   @@map("auth_verifications")
 }
 
+model AuthRateLimit {
+  id          String @id @default(uuid(7)) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt @map("last_request")
+
+  @@index([lastRequest])
+  @@map("auth_rate_limits")
+}
+
 model AuthTwoFactor {
   id          String  @id @default(uuid())
   secret      String
@@ -211,7 +221,6 @@ model Category {
   @@index([parentCategoryId])
   @@index([createdBy])
   @@index([isDeleted, parentCategoryId])
-  @@index([imageAssetId])
   @@map("categories")
 }
 
@@ -244,12 +253,14 @@ model Product {
 model ProductCategory {
   productId  String @map("product_id") @db.Uuid
   categoryId String @map("category_id") @db.Uuid
+  isDirect   Boolean @default(true) @map("is_direct")
 
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([productId, categoryId])
   @@index([categoryId])
+  @@index([categoryId, isDirect])
   @@map("product_categories")
 }
 
@@ -268,7 +279,6 @@ model ProductImage {
 
   @@index([productId])
   @@index([productId, displayOrder])
-  @@index([mediaAssetId])
   @@map("product_images")
 }
 
@@ -291,6 +301,8 @@ model MediaAsset {
   attachedResourceType String?   @map("attached_resource_type")
   attachedResourceId   String?   @map("attached_resource_id") @db.Uuid
   attachedAt           DateTime? @map("attached_at")
+  pendingExpiresAt     DateTime? @map("pending_expires_at")
+  deletionClaimedAt    DateTime? @map("deletion_claimed_at")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
@@ -300,6 +312,7 @@ model MediaAsset {
 
   @@index([uploadedBy])
   @@index([status, createdAt])
+  @@index([status, pendingExpiresAt])
   @@index([usage, status])
   @@index([attachedResourceType, attachedResourceId])
   @@map("media_assets")
@@ -341,7 +354,7 @@ model Order {
   shippingCost   Decimal   @default(0) @map("shipping_cost") @db.Decimal(12, 2)
   discountAmount Decimal   @default(0) @map("discount_amount") @db.Decimal(12, 2)
   totalAmount    Decimal   @map("total_amount") @db.Decimal(12, 2)
-  currency       String    @default("USD")
+  currency       String    @default("EGP")
   notes          String?
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
@@ -443,6 +456,8 @@ model PaymentWebhookEvent {
   eventType       String    @map("event_type")
   status          String
   attempts        Int       @default(0)
+  claimToken      String?   @map("claim_token") @db.Uuid
+  claimedAt       DateTime? @map("claimed_at")
   payload         Json
   failureReason   String?   @map("failure_reason")
   receivedAt      DateTime  @default(now()) @map("received_at")
@@ -453,6 +468,7 @@ model PaymentWebhookEvent {
   @@unique([provider, providerEventId])
   @@index([receivedAt])
   @@index([status, receivedAt])
+  @@index([status, claimedAt])
   @@map("payment_webhook_events")
 }
 
@@ -518,6 +534,8 @@ model NotificationDelivery {
   recipient         String
   status            String
   attempts          Int       @default(0)
+  claimToken        String?   @map("claim_token") @db.Uuid
+  claimedAt         DateTime? @map("claimed_at")
   providerMessageId String?   @map("provider_message_id")
   failureReason     String?   @map("failure_reason")
   scheduledAt       DateTime? @map("scheduled_at")
@@ -529,21 +547,27 @@ model NotificationDelivery {
 
   @@index([notificationId])
   @@index([status, scheduledAt])
+  @@index([status, claimedAt])
   @@map("notification_deliveries")
 }
 
 model AuditLog {
-  id           String   @id @default(uuid(7)) @db.Uuid
-  actorUserId  String?  @map("actor_user_id") @db.Uuid
-  actorType    String   @map("actor_type")
-  action       String
-  resourceType String   @map("resource_type")
-  resourceId   String?  @map("resource_id")
-  requestId    String?  @map("request_id")
-  ipAddress    String?  @map("ip_address")
-  userAgent    String?  @map("user_agent")
-  metadata     Json?
-  createdAt    DateTime @default(now()) @map("created_at")
+  id                     String   @id @default(uuid(7)) @db.Uuid
+  actorUserId            String?  @map("actor_user_id") @db.Uuid
+  actorType              String   @map("actor_type")
+  actorIdSnapshot        String?  @map("actor_id_snapshot") @db.Uuid
+  actorNameSnapshot      String?  @map("actor_name_snapshot")
+  actorFirstNameSnapshot String?  @map("actor_first_name_snapshot")
+  actorLastNameSnapshot  String?  @map("actor_last_name_snapshot")
+  actorEmailSnapshot     String?  @map("actor_email_snapshot")
+  action                 String
+  resourceType           String   @map("resource_type")
+  resourceId             String?  @map("resource_id")
+  requestId              String?  @map("request_id")
+  ipAddress              String?  @map("ip_address")
+  userAgent              String?  @map("user_agent")
+  metadata               Json?
+  createdAt              DateTime @default(now()) @map("created_at")
 
   actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
@@ -563,6 +587,8 @@ model OutboxEvent {
   payload       Json
   status        String
   attempts      Int       @default(0)
+  claimToken    String?   @map("claim_token") @db.Uuid
+  claimedAt     DateTime? @map("claimed_at")
   availableAt   DateTime  @default(now()) @map("available_at")
   processedAt   DateTime? @map("processed_at")
   lastError     String?   @map("last_error")
@@ -570,5 +596,6 @@ model OutboxEvent {
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
   @@index([status, availableAt])
+  @@index([status, claimedAt])
   @@map("outbox_events")
 }

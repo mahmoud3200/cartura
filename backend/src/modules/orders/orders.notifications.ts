@@ -73,14 +73,13 @@ export function createExpiredOrderNotification(
 }
 
 export function createOrderNotificationOutboxEvent(
-  eventType: string,
   intent: OrderNotificationIntent,
   recipient: OrderNotificationRecipient,
 ): CreateOutboxEventInput {
   return {
     aggregateType: "order",
     aggregateId: recipient.orderId,
-    eventType,
+    eventType: intent.type,
     payload: {
       notification: {
         userId: recipient.userId,

@@ -6,6 +6,7 @@ import {
   type Product,
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -24,6 +25,7 @@ export async function createProductAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     const product = await createManagementProduct(parsed.data);
     updateTag("catalog:products");
 

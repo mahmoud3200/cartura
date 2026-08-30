@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -23,6 +24,7 @@ export async function reprocessWebhookAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const result = await reprocessManagementWebhookEvent(id.data);
     revalidatePath("/dashboard/payments");
     return { ok: true, data: result };

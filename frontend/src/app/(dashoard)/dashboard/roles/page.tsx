@@ -30,11 +30,11 @@ export default async function RolesPage({
       },
       query,
     );
-  const canDeleteRoles = currentPermissions.includes("roles.delete");
-  const canCreateRoles = currentPermissions.includes("roles.create");
+  const canDeleteRoles = currentPermissions.includes(PERMISSIONS.ROLES_DELETE);
+  const canCreateRoles = currentPermissions.includes(PERMISSIONS.ROLES_CREATE);
   const canUpdateRoles =
-    currentPermissions.includes("roles.update") &&
-    currentPermissions.includes("roles.permissions.update");
+    currentPermissions.includes(PERMISSIONS.ROLES_UPDATE) &&
+    currentPermissions.includes(PERMISSIONS.ROLES_UPDATE_PERMISSIONS);
 
   return (
     <div className="space-y-5">
@@ -66,3 +66,4 @@ export default async function RolesPage({
     </div>
   );
 }
+import { PERMISSIONS } from "@cartura/contracts/authorization";

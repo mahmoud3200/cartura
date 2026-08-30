@@ -41,7 +41,7 @@ describe("ProductImagesField", () => {
           {
             id: "image-1",
             mediaAssetId: "asset-1",
-            imageUrl: null,
+            imageUrl: "https://res.cloudinary.com/cartura/image/upload/image-1",
             altText: null,
             displayOrder: 0,
             createdAt: "2026-08-02T00:00:00.000Z",
@@ -56,7 +56,7 @@ describe("ProductImagesField", () => {
     expect(input).not.toBeNull();
     const click = vi.spyOn(input!, "click");
 
-    fireEvent.click(screen.getByText("Image attached"));
+    fireEvent.click(screen.getByRole("img", { name: "Product image" }));
 
     expect(click).not.toHaveBeenCalled();
   });

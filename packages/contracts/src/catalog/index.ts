@@ -1,14 +1,23 @@
 import { z } from "zod";
 import {
+  dataResponseSchema,
+  paginatedQuerySchema,
+  paginatedResponseSchema,
   paginationMetadataSchema,
-  paginationQuerySchema,
 } from "../common/index.js";
 
-const optionalTextSchema = z
-  .string()
-  .trim()
-  .transform((value) => (value.length === 0 ? undefined : value))
-  .optional();
+export const MAX_PRODUCT_IMAGES = 10;
+
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
+const PRODUCT_PRICE_MAX = 9_999_999_999.99;
+
+const optionalTextSchema = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((value) => (value.length === 0 ? undefined : value))
+    .optional();
 
 const booleanQuerySchema = z.preprocess((value) => {
   if (value === "true") return true;
@@ -27,152 +36,196 @@ const slugSchema = (max: number) =>
       "Slug must contain only lowercase letters, numbers, and single hyphens",
     );
 
-export const listCategoriesQuerySchema = paginationQuerySchema.and(
-  z.object({
+export const listCategoriesQuerySchema = paginatedQuerySchema({
     q: z.string().trim().min(1).max(120).optional(),
     parentCategoryId: z.uuid().optional(),
-  })
-);
+});
 
 export const createCategoryRequestSchema = z.object({
   parentCategoryId: z.uuid().optional(),
   name: z.string().trim().min(2).max(120),
   slug: slugSchema(140),
-  description: optionalTextSchema,
+  description: optionalTextSchema(1000),
   imageAssetId: z.uuid(),
-});
-
-export const updateCategoryRequestSchema = z.object({
-  parentCategoryId: z.uuid().nullable().optional(),
-  name: z.string().trim().min(2).max(120).optional(),
-  slug: slugSchema(140).optional(),
-  description: z.string().trim().max(1000).nullable().optional(),
-  imageAssetId: z.uuid().optional(),
 }).strict();
 
-export const listProductsQuerySchema = paginationQuerySchema.and(z.object({
-  q: z.string().trim().min(1).max(120).optional(),
-  minPrice: z.coerce.number().nonnegative().optional(),
-  maxPrice: z.coerce.number().nonnegative().optional(),
-  inStock: booleanQuerySchema.optional(),
-}));
+export const updateCategoryRequestSchema = z
+  .object({
+    parentCategoryId: z.uuid().nullable().optional(),
+    name: z.string().trim().min(2).max(120).optional(),
+    slug: slugSchema(140).optional(),
+    description: z.string().trim().max(1000).nullable().optional(),
+    imageAssetId: z.uuid().optional(),
+  })
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one category field must be provided",
+  });
+
+export const listProductsQuerySchema = paginatedQuerySchema({
+      q: z.string().trim().min(1).max(120).optional(),
+      minPrice: z.coerce.number().nonnegative().max(PRODUCT_PRICE_MAX).optional(),
+      maxPrice: z.coerce.number().nonnegative().max(PRODUCT_PRICE_MAX).optional(),
+      inStock: booleanQuerySchema.optional(),
+    }).refine(
+      ({ minPrice, maxPrice }) =>
+        minPrice === undefined ||
+        maxPrice === undefined ||
+        minPrice <= maxPrice,
+      {
+        message: "Minimum price cannot exceed maximum price",
+        path: ["minPrice"],
+      },
+    );
 
 export const productImageInputSchema = z.object({
   mediaAssetId: z.uuid(),
   altText: z.string().trim().max(200).optional(),
   displayOrder: z.number().int().min(0).default(0),
-});
+}).strict();
+
+const productPriceSchema = z
+  .number()
+  .nonnegative()
+  .max(PRODUCT_PRICE_MAX)
+  .multipleOf(0.01);
+
+const productStockSchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(POSTGRES_INTEGER_MAX);
 
 export const createProductRequestSchema = z.object({
   name: z.string().trim().min(2).max(160),
   slug: slugSchema(180),
-  description: optionalTextSchema,
+  description: optionalTextSchema(5000),
   sku: z.string().trim().min(1).max(80),
-  price: z.number().nonnegative(),
-  stockQuantity: z.number().int().min(0).default(0),
+  price: productPriceSchema,
+  stockQuantity: productStockSchema.default(0),
   categoryIds: z.array(z.uuid()).default([]),
-  images: z.array(productImageInputSchema).min(1),
-});
+  images: z
+    .array(productImageInputSchema)
+    .min(1)
+    .max(MAX_PRODUCT_IMAGES),
+}).strict();
 
-export const updateProductRequestSchema = z.object({
-  name: z.string().trim().min(2).max(160).optional(),
-  slug: slugSchema(180).optional(),
-  description: z.string().trim().max(5000).nullable().optional(),
-  sku: z.string().trim().min(1).max(80).optional(),
-  price: z.number().nonnegative().optional(),
-  stockQuantity: z.number().int().min(0).optional(),
-  isDeleted: z.boolean().optional(),
-  categoryIds: z.array(z.uuid()).optional(),
-  images: z.array(productImageInputSchema).min(1).optional(),
-});
+export const updateProductRequestSchema = z
+  .object({
+    name: z.string().trim().min(2).max(160).optional(),
+    slug: slugSchema(180).optional(),
+    description: z.string().trim().max(5000).nullable().optional(),
+    sku: z.string().trim().min(1).max(80).optional(),
+    price: productPriceSchema.optional(),
+    categoryIds: z.array(z.uuid()).optional(),
+    images: z
+      .array(productImageInputSchema)
+      .min(1)
+      .max(MAX_PRODUCT_IMAGES)
+      .optional(),
+  })
+  .strict()
+  .refine((input) => Object.keys(input).length > 0, {
+    message: "At least one product field must be provided",
+  });
 
 export const updateProductInventoryRequestSchema = z.object({
-  stockQuantity: z.number().int().min(0),
-});
+  stockQuantity: productStockSchema,
+}).strict();
+
+export const categoryIdParamsSchema = z.object({
+  categoryId: z.uuid(),
+}).strict();
+
+export const categorySlugParamsSchema = z.object({
+  slug: slugSchema(140),
+}).strict();
+
+export const categoryProductsParamsSchema = z.object({
+  categorySlug: slugSchema(140),
+}).strict();
+
+export const productIdParamsSchema = z.object({
+  productId: z.uuid(),
+}).strict();
+
+export const productSlugParamsSchema = z.object({
+  slug: slugSchema(180),
+}).strict();
 
 export const paginationResponseSchema = paginationMetadataSchema;
 
 const nullableStringSchema = z.string().nullable();
 
 export const categoryChildSchema = z.object({
-  id: z.string(),
-  parentCategoryId: nullableStringSchema,
+  id: z.uuid(),
+  parentCategoryId: z.uuid().nullable(),
   name: z.string(),
   slug: z.string(),
   description: nullableStringSchema,
-  imageUrl: z.string(),
+  imageUrl: z.url(),
   imageAssetId: z.uuid(),
   isDeleted: z.literal(false),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const parentCategorySchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   slug: z.string(),
 });
 
 export const categorySchema = categoryChildSchema.extend({
-  parentCategoryName: nullableStringSchema.optional(),
-  parentCategory: z.array(parentCategorySchema).nullable().optional(),
-  children: z.array(categoryChildSchema).optional(),
+  parentCategoryName: nullableStringSchema,
+  parentCategory: z.array(parentCategorySchema).nullable(),
+  children: z.array(categoryChildSchema),
 });
 
 export const productCategorySchema = z.object({
-  id: z.string(),
-  parentCategoryId: nullableStringSchema,
+  id: z.uuid(),
+  parentCategoryId: z.uuid().nullable(),
   name: z.string(),
   slug: z.string(),
   description: nullableStringSchema,
-  imageUrl: z.string(),
+  imageUrl: z.url(),
   isDeleted: z.literal(false),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const productImageSchema = z.object({
-  id: z.string(),
-  mediaAssetId: nullableStringSchema,
-  imageUrl: nullableStringSchema,
+  id: z.uuid(),
+  mediaAssetId: z.uuid().nullable(),
+  imageUrl: z.url(),
   altText: nullableStringSchema,
-  displayOrder: z.number(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  displayOrder: z.number().int().nonnegative(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
 });
 
 export const productSchema = z.object({
-  id: z.string(),
+  id: z.uuid(),
   name: z.string(),
   slug: z.string(),
   description: nullableStringSchema,
   sku: z.string(),
-  price: z.number(),
-  stockQuantity: z.number(),
+  price: productPriceSchema,
+  stockQuantity: productStockSchema,
   isDeleted: z.boolean(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
   categories: z.array(productCategorySchema),
   images: z.array(productImageSchema),
 });
 
-export const categoryListResponseSchema = z.object({
-  data: z.array(categorySchema),
-  pagination: paginationResponseSchema,
-});
+export const categoryListResponseSchema = paginatedResponseSchema(categorySchema);
 
-export const categoryResponseSchema = z.object({
-  data: categorySchema,
-});
+export const categoryResponseSchema = dataResponseSchema(categorySchema);
 
-export const productListResponseSchema = z.object({
-  data: z.array(productSchema),
-  pagination: paginationResponseSchema,
-});
+export const productListResponseSchema = paginatedResponseSchema(productSchema);
 
-export const productResponseSchema = z.object({
-  data: productSchema,
-});
+export const productResponseSchema = dataResponseSchema(productSchema);
 
 export type ListCategoriesQuery = z.infer<typeof listCategoriesQuerySchema>;
 export type CreateCategoryRequest = z.infer<typeof createCategoryRequestSchema>;
@@ -184,6 +237,13 @@ export type UpdateProductRequest = z.infer<typeof updateProductRequestSchema>;
 export type UpdateProductInventoryRequest = z.infer<
   typeof updateProductInventoryRequestSchema
 >;
+export type CategoryIdParams = z.infer<typeof categoryIdParamsSchema>;
+export type CategorySlugParams = z.infer<typeof categorySlugParamsSchema>;
+export type CategoryProductsParams = z.infer<
+  typeof categoryProductsParamsSchema
+>;
+export type ProductIdParams = z.infer<typeof productIdParamsSchema>;
+export type ProductSlugParams = z.infer<typeof productSlugParamsSchema>;
 export type PaginationResponse = z.infer<typeof paginationResponseSchema>;
 export type CategoryChild = z.infer<typeof categoryChildSchema>;
 export type Category = z.infer<typeof categorySchema>;

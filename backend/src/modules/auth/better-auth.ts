@@ -1,4 +1,4 @@
-import { betterAuth } from "better-auth";
+import { APIError, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { openAPI, twoFactor } from "better-auth/plugins";
 import { bearer } from "better-auth/plugins/bearer";
@@ -8,9 +8,11 @@ import { jwt } from "better-auth/plugins/jwt";
 import { env, frontendOrigins } from "../../config/env.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
 import { mailService } from "../../infrastructure/mail/index.js";
-import { assignDefaultCustomerRole } from "../authorization/authorization.provisioning.js";
+import { usersService } from "../users/users.service.js";
 
 import { createAuthenticationCodeEmail } from "./auth.email.js";
+import { authRateLimitOptions } from "./auth.options.js";
+import { assertSessionCreationAllowed } from "./auth-session.policy.js";
 import { getOtpEmailSubject } from "./auth.utils.js";
 import { getGoogleProfileNames } from "./google-profile.js";
 
@@ -67,6 +69,7 @@ export const auth = betterAuth({
     modelName: "authVerification",
     storeInDatabase: true,
   },
+  rateLimit: authRateLimitOptions,
   advanced: {
     database: {
       generateId: "uuid",
@@ -80,10 +83,15 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
   },
   databaseHooks: {
-    user: {
+    session: {
       create: {
-        after: async (user) => {
-          await assignDefaultCustomerRole(user.id);
+        before: async (session) => {
+          await assertSessionCreationAllowed(
+            session.userId,
+            (userId) => usersService.assertAccountCanAccess(userId),
+          );
+
+          return { data: session };
         },
       },
     },
@@ -105,9 +113,16 @@ export const auth = betterAuth({
       expiresIn: 10 * 60,
       allowedAttempts: 3,
       storeOTP: "hashed",
+      disableSignUp: true,
       sendVerificationOnSignUp: true,
       overrideDefaultEmailVerification: true,
       async sendVerificationOTP({ email, otp, type }) {
+        if (type === "sign-in") {
+          throw new APIError("BAD_REQUEST", {
+            message: "Passwordless email sign-in is not enabled",
+          });
+        }
+
         const subject = getOtpEmailSubject(type);
 
         await mailService.sendMail({
@@ -166,7 +181,7 @@ function getOtpPurpose(
       return "Use this code to reset your password.";
     case "change-email":
       return "Use this code to confirm your new email address.";
-    default:
-      return "Use this code to finish signing in.";
+    case "sign-in":
+      throw new Error("Passwordless email sign-in is not enabled");
   }
 }

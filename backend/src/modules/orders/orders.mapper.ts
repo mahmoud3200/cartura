@@ -1,25 +1,54 @@
-import type { OrderSummary } from "@cartura/contracts/orders";
+import type {
+  CheckoutOrderResponse,
+  OrderSummary,
+} from "@cartura/contracts/orders";
+import {
+  orderCurrencySchema,
+  orderStatusActorSchema,
+  orderStatusSchema,
+  paymentMethodSchema,
+} from "@cartura/contracts/orders";
+import {
+  paymentRecordProviderSchema,
+  paymentRecordStatusSchema,
+} from "@cartura/contracts/payments";
 
 import type { OrderWithDetails } from "./orders.types.js";
 
-export function mapOrder(order: OrderWithDetails) {
-  const mapped = {
+export function mapOrder(order: OrderWithDetails): OrderSummary {
+  return {
     id: order.id,
     userId: order.userId,
     orderNumber: order.orderNumber,
-    status: order.status,
+    status: orderStatusSchema.parse(order.status),
     subtotal: Number(order.subtotal),
     shippingCost: Number(order.shippingCost),
     discountAmount: Number(order.discountAmount),
     totalAmount: Number(order.totalAmount),
-    currency: order.currency,
+    currency: orderCurrencySchema.parse(order.currency),
     notes: order.notes,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     completedAt: order.completedAt?.toISOString() ?? null,
     cancelledAt: order.cancelledAt?.toISOString() ?? null,
-    customer: order.user,
-    address: order.address,
+    customer: {
+      id: order.user.id,
+      name: order.user.name,
+      firstName: order.user.firstName,
+      lastName: order.user.lastName,
+      email: order.user.email,
+    },
+    address: order.address
+      ? {
+          recipientName: order.address.recipientName,
+          phoneNumber: order.address.phoneNumber,
+          country: order.address.country,
+          city: order.address.city,
+          area: order.address.area,
+          streetAddress: order.address.streetAddress,
+          postalCode: order.address.postalCode,
+        }
+      : null,
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.productId,
@@ -32,14 +61,13 @@ export function mapOrder(order: OrderWithDetails) {
     payment: order.payment
       ? {
           id: order.payment.id,
-          provider: order.payment.provider,
+          provider: paymentRecordProviderSchema.parse(order.payment.provider),
           providerTransactionId: order.payment.providerTransactionId,
-          paymentMethod: order.payment.paymentMethod,
-          status: order.payment.status,
+          paymentMethod: paymentMethodSchema.parse(order.payment.paymentMethod),
+          status: paymentRecordStatusSchema.parse(order.payment.status),
           amount: Number(order.payment.amount),
-          currency: order.payment.currency,
+          currency: orderCurrencySchema.parse(order.payment.currency),
           failureReason: order.payment.failureReason,
-          metadata: order.payment.metadata,
           paidAt: order.payment.paidAt?.toISOString() ?? null,
           refundedAt: order.payment.refundedAt?.toISOString() ?? null,
           createdAt: order.payment.createdAt.toISOString(),
@@ -48,16 +76,24 @@ export function mapOrder(order: OrderWithDetails) {
       : null,
     statusHistory: order.statusHistory.map((entry) => ({
       id: entry.id,
-      actorType: entry.actorType,
+      actorType: orderStatusActorSchema.parse(entry.actorType),
       changedBy: entry.changedBy,
-      previousStatus: entry.previousStatus,
-      newStatus: entry.newStatus,
+      previousStatus: entry.previousStatus
+        ? orderStatusSchema.parse(entry.previousStatus)
+        : null,
+      newStatus: orderStatusSchema.parse(entry.newStatus),
       note: entry.note,
       createdAt: entry.createdAt.toISOString(),
     })),
   };
+}
 
-  mapped satisfies OrderSummary;
-
-  return mapped;
+export function mapCheckoutOrderResult(input: {
+  order: OrderWithDetails;
+  checkoutUrl: string | null;
+}): CheckoutOrderResponse["data"] {
+  return {
+    order: mapOrder(input.order),
+    checkoutUrl: input.checkoutUrl,
+  };
 }

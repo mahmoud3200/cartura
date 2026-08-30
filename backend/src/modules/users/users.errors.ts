@@ -21,13 +21,21 @@ export function cantBanSuperAdminError(
 }
 
 export function cantSelfBanError(
-  message = "You cannot suspended or ban yourself",
+  message = "You cannot suspend or disable yourself",
 ) {
   return userHttpError(403, "CANT_SUSPEND_OR_BAN_YOURSELF", message);
 }
 
 export function notFoundError() {
   return sharedNotFoundError("USER_NOT_FOUND", "User not found");
+}
+
+export function userStatusChangedError() {
+  return userHttpError(
+    409,
+    "USER_STATUS_CHANGED",
+    "The user changed while the status update was being applied",
+  );
 }
 
 export function accountSuspendedError(

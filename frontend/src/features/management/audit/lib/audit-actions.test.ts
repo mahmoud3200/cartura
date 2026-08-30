@@ -37,9 +37,7 @@ describe("audit action options", () => {
 
   it("includes every actor type currently written by the backend", () => {
     expect(auditActorTypeOptions.map((option) => option.value)).toEqual([
-      "customer",
       "user",
-      "staff",
       "system",
       "provider",
     ]);

@@ -1,3 +1,4 @@
+import type { ApiErrorResponse } from "@cartura/contracts/common";
 import type { ErrorRequestHandler } from "express";
 import { toHttpError } from "../errors/index.js";
 import { getRequestContext } from "./request-context.js";
@@ -12,24 +13,35 @@ export const errorHandler: ErrorRequestHandler = (
   const requestId = getRequestContext(req).requestId;
 
   if (httpError) {
-    res.status(httpError.statusCode).json({
+    const response = {
       error: {
         code: httpError.code,
         message: httpError.message,
-        details: httpError.details,
         requestId,
+        ...(httpError.details === undefined
+          ? {}
+          : { details: httpError.details }),
       },
-    });
+    } satisfies ApiErrorResponse;
+
+    res.status(httpError.statusCode).json(response);
     return;
   }
 
-  console.error(error);
+  console.error("Unhandled request error", {
+    requestId,
+    method: req.method,
+    path: req.originalUrl,
+    error,
+  });
 
-  res.status(500).json({
+  const response = {
     error: {
       code: "INTERNAL_SERVER_ERROR",
-      message: error instanceof Error ? `Unexpected error: ${error.message} - ${error.stack}` : "An unexpected error occurred",
+      message: "An unexpected error occurred",
       requestId,
     },
-  });
+  } satisfies ApiErrorResponse;
+
+  res.status(500).json(response);
 };

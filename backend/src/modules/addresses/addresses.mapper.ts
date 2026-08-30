@@ -1,6 +1,8 @@
-import type { AddressRecord } from "./addresses.types.js";
+import type { AddressResponse } from "@cartura/contracts/addresses";
 
-export function mapAddress(address: AddressRecord) {
+import type { Address } from "../../generated/prisma/client.js";
+
+export function mapAddress(address: Address): AddressResponse {
   return {
     id: address.id,
     userId: address.userId,

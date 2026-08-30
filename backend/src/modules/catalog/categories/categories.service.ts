@@ -3,14 +3,19 @@ import type {
   ListCategoriesQuery,
   UpdateCategoryRequest,
 } from "@cartura/contracts/catalog";
+import {
+  AUDIT_ACTIONS,
+  AUDIT_RESOURCE_TYPES,
+} from "@cartura/contracts/audit-logs";
 
 import type { AuditContext } from "../../audit-logs/audit-logs.types.js";
+import { mediaService } from "../../media/media.service.js";
 import {
   catalogHttpError,
   conflictError,
   notFoundError,
+  throwCatalogPersistenceError,
 } from "../catalog.errors.js";
-import { mediaService } from "../../media/media.service.js";
 import {
   categoriesRepository,
   type CategoriesRepository,
@@ -53,25 +58,29 @@ export class CategoriesService {
       "category_banner",
     );
 
-    return this.repository.create(
-      input,
-      createdBy,
-      audit
-        ? {
-            ...audit,
-            action: "category.create",
-            resourceType: "category",
-            metadata: {
-              parentCategoryId: input.parentCategoryId ?? null,
-              name: input.name,
-              slug: input.slug,
-              description: input.description ?? null,
-              imageAssetId: input.imageAssetId,
-              createdBy: createdBy ?? null,
-            },
-          }
-        : undefined,
-    );
+    try {
+      return await this.repository.create(
+        input,
+        createdBy,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.CATEGORY_CREATE,
+              resourceType: AUDIT_RESOURCE_TYPES.CATEGORY,
+              metadata: {
+                parentCategoryId: input.parentCategoryId ?? null,
+                name: input.name,
+                slug: input.slug,
+                description: input.description ?? null,
+                imageAssetId: input.imageAssetId,
+                createdBy: createdBy ?? null,
+              },
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
   async update(
@@ -116,70 +125,78 @@ export class CategoriesService {
         : input.imageAssetId;
     this.assertHasCategoryImage(nextImageAssetId);
 
-    return this.repository.update(
-      categoryId,
-      input,
-      audit
-        ? {
-            ...audit,
-            action: "category.update",
-            resourceType: "category",
-            resourceId: categoryId,
-            metadata: {
-              changedFields: Object.keys(input),
-              previous: {
-                parentCategoryId: category.parentCategoryId,
-                name: category.name,
-                slug: category.slug,
-                description: category.description,
-                imageUrl: category.imageUrl,
-                imageAssetId: category.imageAssetId,
+    try {
+      return await this.repository.update(
+        categoryId,
+        input,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.CATEGORY_UPDATE,
+              resourceType: AUDIT_RESOURCE_TYPES.CATEGORY,
+              resourceId: categoryId,
+              metadata: {
+                changedFields: Object.keys(input),
+                previous: {
+                  parentCategoryId: category.parentCategoryId,
+                  name: category.name,
+                  slug: category.slug,
+                  description: category.description,
+                  imageUrl: category.imageUrl,
+                  imageAssetId: category.imageAssetId,
+                },
+                next: {
+                  parentCategoryId:
+                    input.parentCategoryId === undefined
+                      ? category.parentCategoryId
+                      : input.parentCategoryId,
+                  name: input.name ?? category.name,
+                  slug: input.slug ?? category.slug,
+                  description:
+                    input.description === undefined
+                      ? category.description
+                      : input.description,
+                  imageUrl: nextImageUrl,
+                  imageAssetId:
+                    input.imageAssetId === undefined
+                      ? category.imageAssetId
+                      : input.imageAssetId,
+                },
               },
-              next: {
-                parentCategoryId:
-                  input.parentCategoryId === undefined
-                    ? category.parentCategoryId
-                    : input.parentCategoryId,
-                name: input.name ?? category.name,
-                slug: input.slug ?? category.slug,
-                description:
-                  input.description === undefined
-                    ? category.description
-                    : input.description,
-                imageUrl: nextImageUrl,
-                imageAssetId:
-                  input.imageAssetId === undefined
-                    ? category.imageAssetId
-                    : input.imageAssetId,
-              },
-            },
-          }
-        : undefined,
-    );
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
   async softDelete(categoryId: string, audit?: AuditContext) {
     const category = await this.assertActiveExists(categoryId);
 
-    await this.repository.softDelete(
-      categoryId,
-      audit
-        ? {
-            ...audit,
-            action: "category.soft_delete",
-            resourceType: "category",
-            resourceId: categoryId,
-            metadata: {
-              previous: {
-                isDeleted: category.isDeleted,
+    try {
+      await this.repository.softDelete(
+        categoryId,
+        audit
+          ? {
+              ...audit,
+              action: AUDIT_ACTIONS.CATEGORY_SOFT_DELETE,
+              resourceType: AUDIT_RESOURCE_TYPES.CATEGORY,
+              resourceId: categoryId,
+              metadata: {
+                previous: {
+                  isDeleted: category.isDeleted,
+                },
+                next: {
+                  isDeleted: true,
+                },
               },
-              next: {
-                isDeleted: true,
-              },
-            },
-          }
-        : undefined,
-    );
+            }
+          : undefined,
+      );
+    } catch (error) {
+      throwCatalogPersistenceError(error);
+    }
   }
 
   private async assertActiveExists(categoryId: string) {

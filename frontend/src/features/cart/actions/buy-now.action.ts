@@ -4,6 +4,7 @@ import {
   buyNowCheckoutRequestSchema,
   type BuyNowCheckoutRequest,
 } from "@cartura/contracts/orders";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { buyNowCheckout } from "../api/cart-api";
 import type { CartActionResult } from "../types";
@@ -25,6 +26,7 @@ export async function buyNowAction(
   }
 
   try {
+    await enforceBffRateLimit("checkout");
     const checkout = await buyNowCheckout(parsed.data);
     return { 
       ok: true, 

@@ -110,7 +110,5 @@ export async function seedDevelopmentRoleUsers(
     });
   }
 
-  console.log(
-    `Development role users seeded with password "${env.DEV_SEED_PASSWORD}".`,
-  );
+  console.log("Development role users seeded.");
 }

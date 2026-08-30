@@ -1,4 +1,6 @@
 export {
+  categoryIdParamsSchema,
+  categorySlugParamsSchema,
   createCategoryRequestSchema,
   listCategoriesQuerySchema,
   updateCategoryRequestSchema,

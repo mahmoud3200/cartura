@@ -1,8 +1,13 @@
+import { getRateLimitResponseMetadata } from "@/shared/api/rate-limit-headers";
+
 export class InternalApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
     public readonly payload: unknown,
+    public readonly code?: string,
+    public readonly retryAfterSeconds?: number,
+    public readonly responseHeaders: Headers = new Headers(),
   ) {
     super(message);
     this.name = "InternalApiError";
@@ -24,7 +29,16 @@ export async function fetchInternalJson(path: string, init?: RequestInit) {
   const payload = await readPayload(response);
 
   if (!response.ok) {
-    throw new InternalApiError(getErrorMessage(payload), response.status, payload);
+    const metadata = getRateLimitResponseMetadata(response, payload);
+
+    throw new InternalApiError(
+      getErrorMessage(payload),
+      response.status,
+      payload,
+      metadata.code,
+      metadata.retryAfterSeconds,
+      metadata.headers,
+    );
   }
 
   return payload;

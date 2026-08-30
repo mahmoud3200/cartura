@@ -7,6 +7,7 @@ import {
 } from "@cartura/contracts/users";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -26,6 +27,7 @@ export async function updateUserStatusAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const user = await updateManagementUserStatus(id.data, body.data);
     revalidatePath("/dashboard/users");
     return { ok: true, data: user };

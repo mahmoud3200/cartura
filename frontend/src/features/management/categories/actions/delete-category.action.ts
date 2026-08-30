@@ -2,6 +2,7 @@
 
 import { updateTag } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -20,6 +21,7 @@ export async function deleteCategoryAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     await deleteManagementCategory(parsed.data);
     updateTag("catalog:categories");
     updateTag("catalog:products");

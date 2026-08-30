@@ -1,8 +1,9 @@
 import type { OrderSummary } from "@cartura/contracts/orders";
 import {
   REFUND_WINDOW_DAYS,
-  type Refund,
+  type CustomerRefund,
   type RefundReason,
+  type RefundStatus,
 } from "@cartura/contracts/refunds";
 
 export const RETURN_REASON_OPTIONS = [
@@ -18,16 +19,16 @@ type OrderReturnPanelState =
   | {
       kind: "request";
       deadline: Date;
-      previousRejection?: Refund;
+      previousRejection?: CustomerRefund;
     }
-  | { kind: "status"; refund: Refund }
+  | { kind: "status"; refund: CustomerRefund }
   | { kind: "unavailable"; message: string };
 
 const RETURN_WINDOW_MS = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 export function getOrderReturnPanelState(
   order: Pick<OrderSummary, "status" | "completedAt">,
-  refunds: Refund[],
+  refunds: CustomerRefund[],
   now = new Date(),
 ): OrderReturnPanelState {
   const latestRejectedRefund = refunds.find(
@@ -67,11 +68,32 @@ export function getOrderReturnPanelState(
   };
 }
 
-export function getRefundReasonLabel(reason: Refund["reasonCode"]) {
+export function getRefundReasonLabel(reason: CustomerRefund["reasonCode"]) {
   return (
     RETURN_REASON_OPTIONS.find((option) => option.value === reason)?.label ??
     "Other"
   );
+}
+
+export function getCustomerRefundStatusMessage(status: RefundStatus) {
+  switch (status) {
+    case "requested":
+      return "Your return request is waiting for review.";
+    case "approved":
+      return "Your return was approved. The refund is ready to be issued.";
+    case "rejected":
+      return "Your return request was not approved. Review the staff note below.";
+    case "pickup_scheduled":
+      return "Prepare the complete order for the scheduled pickup.";
+    case "item_received":
+      return "Your returned items were received. The refund is ready to be issued.";
+    case "processing":
+      return "Your refund is being processed through the original payment method.";
+    case "completed":
+      return "Your refund was completed through the original payment method.";
+    case "failed":
+      return "Your refund needs staff attention. You do not need to submit another request.";
+  }
 }
 
 function getReturnDeadline(

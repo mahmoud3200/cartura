@@ -1,39 +1,44 @@
-const routePermissions: Record<string, readonly string[]> = {
-  "/dashboard": ["analytics.read"],
+import {
+  PERMISSIONS,
+  type PermissionName,
+} from "@cartura/contracts/authorization";
+
+const routePermissions: Record<string, readonly PermissionName[]> = {
+  "/dashboard": [PERMISSIONS.ANALYTICS_READ],
   "/dashboard/products": [
-    "products.create",
-    "products.update",
-    "products.delete",
-    "inventory.update",
+    PERMISSIONS.PRODUCTS_CREATE,
+    PERMISSIONS.PRODUCTS_UPDATE,
+    PERMISSIONS.PRODUCTS_DELETE,
+    PERMISSIONS.INVENTORY_UPDATE,
   ],
   "/dashboard/categories": [
-    "categories.create",
-    "categories.update",
-    "categories.delete",
+    PERMISSIONS.CATEGORIES_CREATE,
+    PERMISSIONS.CATEGORIES_UPDATE,
+    PERMISSIONS.CATEGORIES_DELETE,
   ],
-  "/dashboard/orders": ["orders.read", "orders.update"],
+  "/dashboard/orders": [PERMISSIONS.ORDERS_READ, PERMISSIONS.ORDERS_UPDATE],
   "/dashboard/users": [
-    "users.read",
-    "users.status.update",
-    "users.role.update",
+    PERMISSIONS.USERS_READ,
+    PERMISSIONS.USERS_UPDATE_STATUS,
+    PERMISSIONS.USERS_UPDATE_ROLE,
   ],
   "/dashboard/refunds": [
-    "refunds.read",
-    "refunds.create",
-    "refunds.execute",
+    PERMISSIONS.REFUNDS_READ,
+    PERMISSIONS.REFUNDS_CREATE,
+    PERMISSIONS.REFUNDS_EXECUTE,
   ],
   "/dashboard/payments": [
-    "payments.webhooks.read",
-    "payments.webhooks.reprocess",
+    PERMISSIONS.PAYMENT_WEBHOOKS_READ,
+    PERMISSIONS.PAYMENT_WEBHOOKS_REPROCESS,
   ],
   "/dashboard/roles": [
-    "roles.read",
-    "roles.create",
-    "roles.update",
-    "roles.delete",
-    "roles.permissions.update",
+    PERMISSIONS.ROLES_READ,
+    PERMISSIONS.ROLES_CREATE,
+    PERMISSIONS.ROLES_UPDATE,
+    PERMISSIONS.ROLES_DELETE,
+    PERMISSIONS.ROLES_UPDATE_PERMISSIONS,
   ],
-  "/dashboard/audit": ["audit_logs.read"],
+  "/dashboard/audit": [PERMISSIONS.AUDIT_LOGS_READ],
 };
 
 const landingRouteOrder = [

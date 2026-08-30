@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { deletePendingMediaAsset } from "@/features/management/shared/api/media-server-api";
 import {
@@ -18,6 +19,7 @@ export async function deleteProductMediaAction(
   }
 
   try {
+    await enforceBffRateLimit("media");
     await deletePendingMediaAsset(parsed.data);
     return { ok: true, data: null };
   } catch (error) {

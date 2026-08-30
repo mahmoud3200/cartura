@@ -68,11 +68,19 @@ async function proxyRequest(
     );
   } catch (error) {
     if (error instanceof ApiError) {
-      return NextResponse.json(error.payload, { status: error.status });
+      return NextResponse.json(error.payload, {
+        status: error.status,
+        headers: error.responseHeaders,
+      });
     }
 
     return NextResponse.json(
-      { error: { message: "The request could not be completed." } },
+      {
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "The request could not be completed.",
+        },
+      },
       { status: 500 },
     );
   }
@@ -93,11 +101,19 @@ async function proxyFormDataRequest(
     );
   } catch (error) {
     if (error instanceof ApiError) {
-      return NextResponse.json(error.payload, { status: error.status });
+      return NextResponse.json(error.payload, {
+        status: error.status,
+        headers: error.responseHeaders,
+      });
     }
 
     return NextResponse.json(
-      { error: { message: "The request could not be completed." } },
+      {
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "The request could not be completed.",
+        },
+      },
       { status: 500 },
     );
   }

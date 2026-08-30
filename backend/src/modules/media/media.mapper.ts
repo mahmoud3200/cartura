@@ -1,7 +1,12 @@
+import {
+  mediaAssetResponseSchema,
+  type MediaAssetResponse,
+} from "@cartura/contracts/media";
+
 import type { MediaAsset } from "./media.types.js";
 
-export function mapMediaAsset(asset: MediaAsset) {
-  return {
+export function mapMediaAsset(asset: MediaAsset): MediaAssetResponse {
+  return mediaAssetResponseSchema.parse({
     id: asset.id,
     provider: asset.provider,
     publicId: asset.publicId,
@@ -20,5 +25,5 @@ export function mapMediaAsset(asset: MediaAsset) {
     createdAt: asset.createdAt.toISOString(),
     updatedAt: asset.updatedAt.toISOString(),
     attachedAt: asset.attachedAt?.toISOString() ?? null,
-  };
+  });
 }

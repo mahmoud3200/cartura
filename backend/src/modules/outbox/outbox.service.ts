@@ -1,9 +1,9 @@
-import { notificationsService } from "../notifications/index.js";
-import type {
-  CreateNotificationOutboxInput,
-  CreateOutboxEventInput,
-  PrismaExecutor,
-} from "./outbox.types.js";
+import { randomUUID } from "node:crypto";
+
+import {
+  notificationsService,
+  type NotificationsService,
+} from "../notifications/notifications.service.js";
 import {
   getNotificationFromOutboxPayload,
   getOutboxErrorMessage,
@@ -20,29 +20,8 @@ import {
 export class OutboxService {
   constructor(
     private readonly repository: OutboxRepository = outboxRepository,
+    private readonly notifier: NotificationsService = notificationsService,
   ) {}
-
-  create(input: CreateOutboxEventInput, client?: PrismaExecutor) {
-    return this.repository.create(input, client);
-  }
-
-  createNotificationEvent(
-    input: CreateNotificationOutboxInput,
-    client?: PrismaExecutor,
-  ) {
-    return this.create(
-      {
-        aggregateType: input.aggregateType,
-        aggregateId: input.aggregateId,
-        eventType: input.eventType,
-        payload: {
-          notification: input.notification,
-        },
-        availableAt: input.availableAt,
-      },
-      client,
-    );
-  }
 
   async processBatch(limit = 25): Promise<number> {
     const now = new Date();
@@ -55,18 +34,27 @@ export class OutboxService {
     let processed = 0;
 
     for (const event of events) {
-      if (!(await this.repository.claim(event.id, staleBefore))) {
+      const claimToken = randomUUID();
+
+      if (!(await this.repository.claim({
+        eventId: event.id,
+        availableAt: now,
+        staleBefore,
+        claimToken,
+      }))) {
         continue;
       }
 
       try {
         await this.processEvent(event);
-        await this.repository.markProcessed(event.id);
-        processed += 1;
+        if (await this.repository.markProcessed(event.id, claimToken)) {
+          processed += 1;
+        }
       } catch (error) {
         const attempts = event.attempts + 1;
         await this.repository.markFailedOrPending({
           eventId: event.id,
+          claimToken,
           failed: attempts >= OUTBOX_MAX_ATTEMPTS,
           availableAt: nextOutboxAttemptAt(attempts),
           lastError: getOutboxErrorMessage(error),
@@ -78,16 +66,9 @@ export class OutboxService {
   }
 
   private async processEvent(event: OutboxEventRecord) {
-    const notification = getNotificationFromOutboxPayload(
-      event.payload,
-      event.eventType,
-    );
+    const notification = getNotificationFromOutboxPayload(event);
 
-    if (!notification) {
-      return;
-    }
-
-    await notificationsService.create({
+    await this.notifier.create({
       ...notification,
       sourceEventId: event.id,
     });

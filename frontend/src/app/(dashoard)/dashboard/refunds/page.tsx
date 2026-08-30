@@ -1,9 +1,13 @@
-import { refundStatusSchema } from "@cartura/contracts/refunds";
+import {
+  REFUND_STATUSES,
+  refundStatusSchema,
+} from "@cartura/contracts/refunds";
 
 import { listManagementRefunds } from "@/features/management/refunds/api/refunds-api";
 import { RefundsTable } from "@/features/management/refunds/components/refunds-table/refunds-table";
 import { PageHeader } from "@/features/management/shared/components/admin-ui";
 import { ManagementFilters } from "@/features/management/shared/components/management-filters";
+import { formatStatus } from "@/features/management/shared/lib/admin-utils";
 import { requireManagementRouteAccess } from "@/features/management/shared/lib/require-management-access";
 import { PaginationControls } from "@/shared/ui/pagination-controls";
 import {
@@ -45,18 +49,10 @@ export default async function RefundsPage({
             name: "status",
             label: "statuses",
             value: status,
-            options: [
-              "requested",
-              "approved",
-              "rejected",
-              "pickup_scheduled",
-              "item_received",
-              "processing",
-              "completed",
-              "failed",
-            ].map(
-              (value) => ({ label: value, value }),
-            ),
+            options: REFUND_STATUSES.map((value) => ({
+              label: formatStatus(value),
+              value,
+            })),
           },
         ]}
       />

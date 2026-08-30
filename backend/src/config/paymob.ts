@@ -27,10 +27,6 @@ export function getPaymobCardIntegrationId(currency: string): number | null {
     : null;
 }
 
-export function isPaymobCheckoutConfigured(currency: string): boolean {
-  return getPaymobCheckoutConfigurationIssue(currency) === null;
-}
-
 export function getPaymobCheckoutConfigurationIssue(
   currency: string,
 ): { code: string; message: string } | null {

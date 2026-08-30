@@ -3,6 +3,19 @@ import {
   notificationListResponseSchema,
   notificationResponseSchema,
 } from "@cartura/contracts/notifications";
+import { getRateLimitResponseMetadata } from "@/shared/api/rate-limit-headers";
+
+export class NotificationApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    public readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+    this.name = "NotificationApiError";
+  }
+}
 
 export async function fetchNotificationsPage(input: {
   page: number;
@@ -41,7 +54,14 @@ async function parseResponse<T>(
   const payload: unknown = await response.json();
 
   if (!response.ok) {
-    throw new Error(getErrorMessage(payload));
+    const metadata = getRateLimitResponseMetadata(response, payload);
+
+    throw new NotificationApiError(
+      getErrorMessage(payload),
+      response.status,
+      metadata.code,
+      metadata.retryAfterSeconds,
+    );
   }
 
   return schema.parse(payload);

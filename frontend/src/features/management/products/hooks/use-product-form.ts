@@ -91,7 +91,15 @@ export function useProductForm({
     };
 
     if (mode === "edit" && product) {
-      updateProduct.mutate({ productId: product.id, product: payload });
+      const { stockQuantity, ...productUpdate } = payload;
+      updateProduct.mutate({
+        productId: product.id,
+        product: productUpdate,
+        inventory:
+          stockQuantity === product.stockQuantity
+            ? undefined
+            : { stockQuantity },
+      });
       return;
     }
 

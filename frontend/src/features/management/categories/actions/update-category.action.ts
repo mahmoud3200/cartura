@@ -7,6 +7,7 @@ import {
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -35,6 +36,7 @@ export async function updateCategoryAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     const category = await updateManagementCategory(parsed.data);
     updateTag("catalog:categories");
     updateTag("catalog:products");

@@ -3,6 +3,7 @@ import type {
   Role as RoleResponse,
   UserRoleOption,
 } from "@cartura/contracts/authorization";
+import { permissionNameSchema } from "@cartura/contracts/authorization";
 
 import type { Permission } from "../../generated/prisma/client.js";
 import type { RoleWithPermissions } from "./authorization.repository.js";
@@ -10,7 +11,7 @@ import type { RoleWithPermissions } from "./authorization.repository.js";
 export function mapPermission(permission: Permission): PermissionResponse {
   return {
     id: permission.id,
-    name: permission.name,
+    name: permissionNameSchema.parse(permission.name),
     description: permission.description,
   };
 }

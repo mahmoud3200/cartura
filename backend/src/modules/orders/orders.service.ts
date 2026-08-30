@@ -147,6 +147,16 @@ export class OrdersService {
       "checkoutUrl",
     );
 
+    if (
+      !isCashOnDelivery(order.payment?.paymentMethod ?? "") &&
+      (order.status === "cancelled" || order.payment?.status === "failed")
+    ) {
+      throw conflictError(
+        "CHECKOUT_PREVIOUSLY_FAILED",
+        "This checkout attempt has already failed or expired",
+      );
+    }
+
     if (!checkoutUrl && !isCashOnDelivery(order.payment?.paymentMethod ?? "")) {
       throw conflictError(
         "CHECKOUT_IN_PROGRESS",
@@ -242,7 +252,7 @@ export class OrdersService {
 
       if (
         await this.repository.expireAwaitingPayment(
-          order.id,
+          order,
           createExpiredOrderNotification(order.orderNumber),
         )
       ) {
@@ -264,6 +274,18 @@ export class OrdersService {
       idempotencyKey,
     );
     const cashOnDelivery = isCashOnDelivery(input.paymentMethod);
+
+    if (existing) {
+      return {
+        currency,
+        idempotencyKey,
+        existing,
+        cashOnDelivery: isCashOnDelivery(
+          existing.order.payment?.paymentMethod ?? input.paymentMethod,
+        ),
+        integrationId: null,
+      };
+    }
 
     if (cashOnDelivery) {
       return {
@@ -354,6 +376,8 @@ export class OrdersService {
       const order = await this.repository.attachPaymobIntention(
         created.order.id,
         {
+          paymentId: created.payment.id,
+          expectedPaymentUpdatedAt: created.payment.updatedAt,
           metadata: {
             integrationId,
             orderNumber: created.order.orderNumber,
@@ -371,6 +395,13 @@ export class OrdersService {
           }),
         },
       );
+
+      if (!order) {
+        throw conflictError(
+          "CHECKOUT_NO_LONGER_PENDING",
+          "Checkout expired before the payment session was attached",
+        );
+      }
 
       return { order, checkoutUrl };
     } catch (error) {

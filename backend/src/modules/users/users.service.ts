@@ -2,32 +2,42 @@ import type {
   ListUsersQuery,
   UpdateUserStatusRequest,
 } from "@cartura/contracts/users";
+import {
+  AUDIT_ACTIONS,
+  AUDIT_RESOURCE_TYPES,
+} from "@cartura/contracts/audit-logs";
 
 import type { AuditContext } from "../audit-logs/audit-logs.types.js";
-import { isExpiredSuspension } from "./users.utils.js";
 import {
   accountDisabledError,
   accountSuspendedError,
   cantBanSuperAdminError,
   cantSelfBanError,
   notFoundError,
+  userStatusChangedError,
 } from "./users.errors.js";
 import { usersRepository, type UsersRepository } from "./users.repository.js";
-import { isSuperAdmin } from "./users.utils.js";
+import { isExpiredSuspension, isSuperAdmin } from "./users.utils.js";
 
 export class UsersService {
   constructor(private readonly repository: UsersRepository = usersRepository) {}
 
   async assertAccountCanAccess(userId: string) {
-    const user = await this.repository.findAccountAccessById(userId);
+    let user = await this.repository.findAccountAccessById(userId);
 
     if (!user) {
       throw notFoundError();
     }
 
     if (isExpiredSuspension(user)) {
-      await this.repository.activate(userId);
-      return;
+      const activated = await this.repository.activateExpired(
+        userId,
+        user.suspendedUntil!,
+      );
+      if (activated) return;
+
+      user = await this.repository.findAccountAccessById(userId);
+      if (!user) throw notFoundError();
     }
 
     if (user.accountStatus === "suspended") {
@@ -60,7 +70,8 @@ export class UsersService {
     }
 
     if (isExpiredSuspension(user)) {
-      return this.repository.activate(userId);
+      await this.repository.activateExpired(userId, user.suspendedUntil!);
+      return this.getExistingUser(userId);
     }
 
     return user;
@@ -78,18 +89,22 @@ export class UsersService {
       throw cantBanSuperAdminError();
     }
 
-    if (userDoingTheRequest === userId) {
+    if (userDoingTheRequest === userId && input.accountStatus !== "active") {
       throw cantSelfBanError();
     }
 
-    return this.repository.updateStatus(
+    const updated = await this.repository.updateStatus(
       userId,
       input,
+      {
+        updatedAt: user.updatedAt,
+        assignedRoleId: user.assignedRole?.roleId ?? null,
+      },
       audit
         ? {
             ...audit,
-            action: "user.status.update",
-            resourceType: "user",
+            action: AUDIT_ACTIONS.USER_STATUS_UPDATE,
+            resourceType: AUDIT_RESOURCE_TYPES.USER,
             resourceId: userId,
             metadata: {
               previous: {
@@ -106,6 +121,9 @@ export class UsersService {
           }
         : undefined,
     );
+
+    if (!updated) throw userStatusChangedError();
+    return updated;
   }
 
   private async getExistingUser(userId: string) {

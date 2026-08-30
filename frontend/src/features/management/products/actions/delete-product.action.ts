@@ -3,6 +3,7 @@
 import type { Product } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -21,6 +22,7 @@ export async function deleteProductAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const product = await deleteManagementProduct(parsed.data);
     updateTag("catalog:products");
 

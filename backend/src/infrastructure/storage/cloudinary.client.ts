@@ -1,12 +1,13 @@
 import { v2 as cloudinary } from "cloudinary";
 
 import { env } from "../../config/env.js";
+import { StorageNotConfiguredError } from "./storage.errors.js";
 
 let configured = false;
 
 export function getCloudinaryClient() {
   if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
-    throw new Error("Cloudinary credentials are not configured");
+    throw new StorageNotConfiguredError("Cloudinary");
   }
 
   if (!configured) {

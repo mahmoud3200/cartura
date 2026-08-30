@@ -2,18 +2,17 @@ import type { RequestHandler } from "express";
 
 import { mapPaginatedResult } from "../../shared/pagination/pagination.js";
 import {
-  getOptionalAuthenticatedUserId,
-  getPathParam,
+  getAuthenticatedUserId,
 } from "../../shared/utils/request.utils.js";
 import { parseInput } from "../../shared/validation/parse-input.js";
 import { getAuditContext } from "../audit-logs/audit-context.js";
 import { mapUser } from "./users.mapper.js";
 import {
   listUsersQuerySchema,
+  userIdParamsSchema,
   updateUserStatusRequestSchema,
 } from "./users.schemas.js";
 import { usersService } from "./users.service.js";
-import type { AuthenticatedRequest } from "../../shared/types/authenticated-request.js";
 
 export class UsersController {
   list: RequestHandler = async (req, res, next) => {
@@ -29,7 +28,8 @@ export class UsersController {
 
   getById: RequestHandler = async (req, res, next) => {
     try {
-      const user = await usersService.getById(getPathParam(req.params.userId));
+      const { userId } = parseInput(userIdParamsSchema, req.params);
+      const user = await usersService.getById(userId);
 
       res.status(200).json({ data: mapUser(user) });
     } catch (error) {
@@ -41,8 +41,8 @@ export class UsersController {
     try {
       const body = parseInput(updateUserStatusRequestSchema, req.body);
       const user = await usersService.updateStatus(
-        getOptionalAuthenticatedUserId(req) as string,
-        getPathParam(req.params.userId),
+        getAuthenticatedUserId(req),
+        parseInput(userIdParamsSchema, req.params).userId,
         body,
         getAuditContext(req),
       );

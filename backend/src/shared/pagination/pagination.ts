@@ -1,17 +1,10 @@
-import type { PaginationQuery } from "./pagination.schema.js";
+import type { PaginationMetadata } from "@cartura/contracts/common";
 
-export type PaginationMeta = {
-  page: number;
-  limit: number;
-  totalItems: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
+import type { PaginationQuery } from "./pagination.schema.js";
 
 export type PaginatedResult<TItem> = {
   items: TItem[];
-  pagination: PaginationMeta;
+  pagination: PaginationMetadata;
 };
 
 export function getPaginationParams(query: PaginationQuery) {
@@ -24,7 +17,7 @@ export function getPaginationParams(query: PaginationQuery) {
 export function createPaginationMeta(
   query: PaginationQuery,
   totalItems: number,
-): PaginationMeta {
+): PaginationMetadata {
   const totalPages = Math.ceil(totalItems / query.limit);
 
   return {

@@ -1,24 +1,26 @@
 import {
   paymentWebhookEventStatusSchema,
+  paymentProviderSchema,
+  paymentRecordProviderSchema,
+  paymentRecordStatusSchema,
+  type Payment as PaymentResponse,
   type PaymentWebhookEvent as PaymentWebhookEventResponse,
 } from "@cartura/contracts/payments";
 
-import type { PaymentWithOrder } from "./payments.types.js";
+import type { PaymentWithOrder } from "./payments.repository.js";
 import type { PaymentWebhookEvent } from "../../generated/prisma/client.js";
 
-export function mapPayment(payment: PaymentWithOrder) {
+export function mapPayment(payment: PaymentWithOrder): PaymentResponse {
   return {
     id: payment.id,
     orderId: payment.orderId,
-    provider: payment.provider,
+    provider: paymentRecordProviderSchema.parse(payment.provider),
     providerTransactionId: payment.providerTransactionId,
-    idempotencyKey: payment.idempotencyKey,
     paymentMethod: payment.paymentMethod,
-    status: payment.status,
+    status: paymentRecordStatusSchema.parse(payment.status),
     amount: Number(payment.amount),
     currency: payment.currency,
     failureReason: payment.failureReason,
-    metadata: payment.metadata,
     paidAt: payment.paidAt?.toISOString() ?? null,
     refundedAt: payment.refundedAt?.toISOString() ?? null,
     createdAt: payment.createdAt.toISOString(),
@@ -35,8 +37,6 @@ export function mapPayment(payment: PaymentWithOrder) {
       currency: refund.currency,
       status: refund.status,
       reason: refund.reason,
-      providerRefundId: refund.providerRefundId,
-      failureReason: refund.failureReason,
       createdAt: refund.createdAt.toISOString(),
       updatedAt: refund.updatedAt.toISOString(),
       completedAt: refund.completedAt?.toISOString() ?? null,
@@ -51,7 +51,7 @@ export function mapPaymentWebhookEvent(
   return {
     id: event.id,
     paymentId: event.paymentId,
-    provider: event.provider,
+    provider: paymentProviderSchema.parse(event.provider),
     providerEventId: event.providerEventId,
     eventType: event.eventType,
     status: paymentWebhookEventStatusSchema.parse(event.status),

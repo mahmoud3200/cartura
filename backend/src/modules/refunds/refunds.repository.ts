@@ -1,17 +1,26 @@
 import type {
   CreateRefundRequest,
   ListRefundsQuery,
+  RefundStatus,
   ReviewRefundRequest,
 } from "@cartura/contracts/refunds";
+import {
+  AUDIT_ACTIONS,
+  AUDIT_RESOURCE_TYPES,
+  type AuditAction,
+} from "@cartura/contracts/audit-logs";
 
 import { Prisma } from "../../generated/prisma/client.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
-import { conflictError, notFoundError } from "../../shared/errors/index.js";
 import { createPaginatedResult } from "../../shared/pagination/pagination.js";
 import { auditLogsRepository } from "../audit-logs/audit-logs.repository.js";
 import type { AuditContext } from "../audit-logs/audit-logs.types.js";
 import { outboxRepository } from "../outbox/index.js";
 import { createRefundNotificationOutboxEvent } from "./refunds.notifications.js";
+import {
+  RefundPersistenceConflictError,
+  type RefundPersistenceConflictKind,
+} from "./refunds.persistence-errors.js";
 
 export const refundInclude = {
   initiator: {
@@ -22,6 +31,14 @@ export const refundInclude = {
   },
   payment: {
     include: {
+      refunds: {
+        select: {
+          status: true,
+          reviewedAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
       order: {
         include: {
           user: {
@@ -47,7 +64,9 @@ const activeRefundStatuses = [
   "processing",
   "completed",
   "failed",
-];
+] satisfies RefundStatus[];
+
+const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
 
 export class RefundsRepository {
   async list(query: ListRefundsQuery, userId?: string) {
@@ -58,7 +77,7 @@ export class RefundsRepository {
         include: refundInclude,
         skip: (query.page - 1) * query.limit,
         take: query.limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       }),
       prisma.refund.count({ where }),
     ]);
@@ -82,7 +101,25 @@ export class RefundsRepository {
     });
   }
 
-  createRequested(input: {
+  async getRemainingRefundAmount(paymentId: string) {
+    const payment = await prisma.payment.findUniqueOrThrow({
+      where: { id: paymentId },
+      select: {
+        amount: true,
+        refunds: {
+          where: { status: { not: "rejected" } },
+          select: { amount: true },
+        },
+      },
+    });
+
+    return payment.refunds.reduce(
+      (remaining, refund) => remaining.minus(refund.amount),
+      payment.amount,
+    );
+  }
+
+  async createRequested(input: {
     userId: string;
     request: CreateRefundRequest;
     paymentId: string;
@@ -91,7 +128,7 @@ export class RefundsRepository {
     refundMethod: "card" | "cash";
     audit?: AuditContext;
   }) {
-    return prisma.$transaction(async (tx) => {
+    return runSerializableRefundTransaction(async (tx) => {
       const existing = await tx.refund.findFirst({
         where: {
           paymentId: input.paymentId,
@@ -101,10 +138,7 @@ export class RefundsRepository {
       });
 
       if (existing) {
-        throw conflictError(
-          "REFUND_ALREADY_REQUESTED",
-          "This order already has an active return or refund",
-        );
+        throw new RefundPersistenceConflictError("active_request");
       }
 
       const refund = await tx.refund.create({
@@ -124,7 +158,7 @@ export class RefundsRepository {
       await recordAudit(
         tx,
         input.audit,
-        "refund.requested",
+        AUDIT_ACTIONS.REFUND_REQUESTED,
         refund.id,
         {
           orderId: refund.payment.orderId,
@@ -135,7 +169,7 @@ export class RefundsRepository {
       await notify(tx, refund, "requested");
 
       return refund;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, "request_concurrent");
   }
 
   findById(refundId: string) {
@@ -185,17 +219,14 @@ export class RefundsRepository {
       });
 
       if (updated.count !== 1) {
-        throw conflictError(
-          "REFUND_ALREADY_REVIEWED",
-          "This return request has already been reviewed",
-        );
+        throw new RefundPersistenceConflictError("already_reviewed");
       }
 
       const refund = await tx.refund.findUniqueOrThrow({
         where: { id: current.id },
         include: refundInclude,
       });
-      await recordAudit(tx, audit, `refund.${status}`, refund.id, {
+      await recordAudit(tx, audit, getReviewAuditAction(status), refund.id, {
         orderId: refund.payment.orderId,
         resolution: refund.resolution,
       });
@@ -227,10 +258,7 @@ export class RefundsRepository {
       });
 
       if (updated.count !== 1) {
-        throw conflictError(
-          "REFUND_ITEM_NOT_RECEIVABLE",
-          "This return is not waiting for a pickup",
-        );
+        throw new RefundPersistenceConflictError("item_not_receivable");
       }
 
       for (const item of current.payment.order.items) {
@@ -244,7 +272,7 @@ export class RefundsRepository {
         where: { id: current.id },
         include: refundInclude,
       });
-      await recordAudit(tx, audit, "refund.item_received", refund.id, {
+      await recordAudit(tx, audit, AUDIT_ACTIONS.REFUND_ITEM_RECEIVED, refund.id, {
         orderId: refund.payment.orderId,
         restockedBy: actorId,
       });
@@ -258,7 +286,7 @@ export class RefundsRepository {
     const updated = await prisma.refund.updateMany({
       where: {
         id: refundId,
-        status: { in: ["approved", "item_received"] },
+        status: { in: ["approved", "item_received", "failed"] },
       },
       data: {
         status: "processing",
@@ -268,10 +296,7 @@ export class RefundsRepository {
     });
 
     if (updated.count !== 1) {
-      throw conflictError(
-        "REFUND_NOT_EXECUTABLE",
-        "This refund is not ready to be issued",
-      );
+      throw new RefundPersistenceConflictError("not_executable");
     }
 
     return prisma.refund.findUniqueOrThrow({
@@ -280,10 +305,14 @@ export class RefundsRepository {
     });
   }
 
-  resetExecution(refundId: string, status: "approved" | "item_received") {
-    return prisma.refund.update({
-      where: { id: refundId },
+  async resetExecution(refundId: string, status: "approved" | "item_received") {
+    await prisma.refund.updateMany({
+      where: { id: refundId, status: "processing" },
       data: { status, failureReason: null, failedAt: null },
+    });
+
+    return prisma.refund.findUniqueOrThrow({
+      where: { id: refundId },
       include: refundInclude,
     });
   }
@@ -294,12 +323,18 @@ export class RefundsRepository {
     audit?: AuditContext,
   ) {
     return prisma.$transaction(async (tx) => {
-      const refund = await tx.refund.update({
+      const updated = await tx.refund.updateMany({
+        where: { id: current.id, status: "processing" },
+        data: { providerRefundId, failureReason: null },
+      });
+
+      const refund = await tx.refund.findUniqueOrThrow({
         where: { id: current.id },
-        data: { providerRefundId },
         include: refundInclude,
       });
-      await recordAudit(tx, audit, "refund.processing", refund.id, {
+
+      if (updated.count !== 1) return refund;
+      await recordAudit(tx, audit, AUDIT_ACTIONS.REFUND_PROCESSING, refund.id, {
         orderId: refund.payment.orderId,
         providerRefundId,
       });
@@ -308,12 +343,21 @@ export class RefundsRepository {
     });
   }
 
-  complete(
+  async complete(
     current: RefundWithDetails,
     providerRefundId: string | null,
     audit?: AuditContext,
+    paymentWebhookClaim?: { eventId: string; claimToken: string },
   ) {
-    return prisma.$transaction(async (tx) => {
+    return runSerializableRefundTransaction(async (tx) => {
+      // Every refund completion for a payment takes the same row lock. This
+      // makes the completed-sum and the resulting payment/order status one
+      // serialized decision, even when different refunds finish together.
+      const payment = await tx.payment.update({
+        where: { id: current.paymentId },
+        data: { updatedAt: new Date() },
+        include: { order: true },
+      });
       const updated = await tx.refund.updateMany({
         where: { id: current.id, status: "processing" },
         data: {
@@ -332,13 +376,17 @@ export class RefundsRepository {
         });
 
         if (existing.status === "completed") {
+          if (paymentWebhookClaim) {
+            await completePaymentWebhookEvent(
+              tx,
+              paymentWebhookClaim,
+              current.paymentId,
+            );
+          }
           return existing;
         }
 
-        throw conflictError(
-          "REFUND_NOT_PROCESSING",
-          "This refund is no longer processing",
-        );
+        throw new RefundPersistenceConflictError("not_processing");
       }
 
       const completed = await tx.refund.aggregate({
@@ -346,7 +394,7 @@ export class RefundsRepository {
         _sum: { amount: true },
       });
       const refundedAmount = completed._sum.amount ?? new Prisma.Decimal(0);
-      const fullyRefunded = refundedAmount.gte(current.payment.amount);
+      const fullyRefunded = refundedAmount.gte(payment.amount);
       const orderStatus = fullyRefunded ? "refunded" : "partially_refunded";
 
       await tx.payment.update({
@@ -357,15 +405,15 @@ export class RefundsRepository {
         },
       });
 
-      if (current.payment.order.status !== orderStatus) {
+      if (payment.order.status !== orderStatus) {
         await tx.order.update({
-          where: { id: current.payment.orderId },
+          where: { id: payment.orderId },
           data: {
             status: orderStatus,
             statusHistory: {
               create: {
                 actorType: "system",
-                previousStatus: current.payment.order.status,
+                previousStatus: payment.order.status,
                 newStatus: orderStatus,
                 note: `Refund ${current.id} completed`,
               },
@@ -378,33 +426,73 @@ export class RefundsRepository {
         where: { id: current.id },
         include: refundInclude,
       });
-      await recordAudit(tx, audit, "refund.completed", refund.id, {
+      await recordAudit(tx, audit, AUDIT_ACTIONS.REFUND_COMPLETED, refund.id, {
         orderId: refund.payment.orderId,
         paymentStatus: orderStatus,
         providerRefundId,
       });
       await notify(tx, refund, "completed");
 
+      if (paymentWebhookClaim) {
+        await completePaymentWebhookEvent(
+          tx,
+          paymentWebhookClaim,
+          current.paymentId,
+        );
+      }
+
       return refund;
-    });
+    }, "completion_concurrent");
   }
 
   fail(current: RefundWithDetails, reason: string, audit?: AuditContext) {
     return prisma.$transaction(async (tx) => {
-      const refund = await tx.refund.update({
-        where: { id: current.id },
+      const updated = await tx.refund.updateMany({
+        where: { id: current.id, status: "processing" },
         data: {
           status: "failed",
           failureReason: reason,
           failedAt: new Date(),
         },
+      });
+
+      const refund = await tx.refund.findUniqueOrThrow({
+        where: { id: current.id },
         include: refundInclude,
       });
-      await recordAudit(tx, audit, "refund.failed", refund.id, {
+
+      if (updated.count !== 1) return refund;
+      await recordAudit(tx, audit, AUDIT_ACTIONS.REFUND_FAILED, refund.id, {
         orderId: refund.payment.orderId,
         reason,
       });
       await notify(tx, refund, "failed");
+      return refund;
+    });
+  }
+
+  recordExecutionUncertainty(
+    current: RefundWithDetails,
+    reason: string,
+    audit?: AuditContext,
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.refund.updateMany({
+        where: { id: current.id, status: "processing" },
+        data: { failureReason: reason },
+      });
+      const refund = await tx.refund.findUniqueOrThrow({
+        where: { id: current.id },
+        include: refundInclude,
+      });
+
+      if (updated.count !== 1) return refund;
+
+      await recordAudit(tx, audit, AUDIT_ACTIONS.REFUND_EXECUTION_UNCERTAIN, refund.id, {
+        orderId: refund.payment.orderId,
+        reason,
+      });
+      await notify(tx, refund, "processing");
       return refund;
     });
   }
@@ -428,10 +516,23 @@ function buildRefundWhere(
   return where;
 }
 
+function getReviewAuditAction(
+  status: "approved" | "pickup_scheduled" | "rejected",
+): AuditAction {
+  switch (status) {
+    case "approved":
+      return AUDIT_ACTIONS.REFUND_APPROVED;
+    case "pickup_scheduled":
+      return AUDIT_ACTIONS.REFUND_PICKUP_SCHEDULED;
+    case "rejected":
+      return AUDIT_ACTIONS.REFUND_REJECTED;
+  }
+}
+
 async function recordAudit(
   tx: Prisma.TransactionClient,
   audit: AuditContext | undefined,
-  action: string,
+  action: AuditAction,
   refundId: string,
   metadata: Prisma.InputJsonObject,
 ) {
@@ -439,7 +540,7 @@ async function recordAudit(
     {
       ...(audit ?? { actorType: "system" }),
       action,
-      resourceType: "refund",
+      resourceType: AUDIT_RESOURCE_TYPES.REFUND,
       resourceId: refundId,
       metadata,
     },
@@ -447,10 +548,36 @@ async function recordAudit(
   );
 }
 
+async function completePaymentWebhookEvent(
+  tx: Prisma.TransactionClient,
+  claim: { eventId: string; claimToken: string },
+  paymentId: string,
+) {
+  const event = await tx.paymentWebhookEvent.updateMany({
+    where: {
+      id: claim.eventId,
+      status: "processing",
+      claimToken: claim.claimToken,
+    },
+    data: {
+      paymentId,
+      status: "processed",
+      processedAt: new Date(),
+      failureReason: null,
+      claimToken: null,
+      claimedAt: null,
+    },
+  });
+
+  if (event.count !== 1) {
+    throw new RefundPersistenceConflictError("webhook_claim_lost");
+  }
+}
+
 function notify(
   tx: Prisma.TransactionClient,
   refund: RefundWithDetails,
-  status: string,
+  status: RefundStatus,
 ) {
   return outboxRepository.create(
     createRefundNotificationOutboxEvent({
@@ -467,3 +594,46 @@ function notify(
 }
 
 export const refundsRepository = new RefundsRepository();
+
+async function runSerializableRefundTransaction<T>(
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  conflict: RefundPersistenceConflictKind,
+): Promise<T> {
+  return retryRefundSerializableTransaction(
+    () => prisma.$transaction(operation, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    }),
+    conflict,
+  );
+}
+
+export async function retryRefundSerializableTransaction<T>(
+  execute: () => Promise<T>,
+  conflict: RefundPersistenceConflictKind,
+): Promise<T> {
+  for (
+    let attempt = 1;
+    attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      return await execute();
+    } catch (error) {
+      if (!hasPrismaErrorCode(error, "P2034")) throw error;
+      if (attempt === MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS) {
+        throw new RefundPersistenceConflictError(conflict);
+      }
+    }
+  }
+
+  throw new RefundPersistenceConflictError(conflict);
+}
+
+function hasPrismaErrorCode(error: unknown, code: string): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === code,
+  );
+}

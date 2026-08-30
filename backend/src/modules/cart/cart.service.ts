@@ -5,9 +5,15 @@ import type {
 
 import {
   cartRepository,
+  type CartMutationResult,
   type CartRepository,
+  type CartWithItems,
 } from "./cart.repository.js";
-import { cartItemNotFoundError, productUnavailableError } from "./cart.errors.js";
+import {
+  cartConcurrentModificationError,
+  cartItemNotFoundError,
+  productUnavailableError,
+} from "./cart.errors.js";
 
 export class CartService {
   constructor(private readonly repository: CartRepository = cartRepository) {}
@@ -17,17 +23,13 @@ export class CartService {
   }
 
   async addItem(userId: string, input: AddCartItemRequest) {
-    const cart = await this.repository.findOrCreateByUserId(userId);
-    const existingQuantity =
-      cart.items.find((item) => item.productId === input.productId)?.quantity ??
-      0;
-
-    await this.assertCanUseProduct(
-      input.productId,
-      existingQuantity + input.quantity,
+    return resolveCartMutation(
+      await this.repository.addItem({
+        userId,
+        productId: input.productId,
+        quantity: input.quantity,
+      }),
     );
-
-    return this.repository.addItem({ userId, ...input });
   }
 
   async updateItem(
@@ -35,52 +37,38 @@ export class CartService {
     productId: string,
     input: UpdateCartItemRequest,
   ) {
-    if (input.quantity > 0) {
-      await this.assertCanUseProduct(productId, input.quantity);
-    }
-
-    const cart = await this.repository.findOrCreateByUserId(userId);
-    const exists = cart.items.some((item) => item.productId === productId);
-
-    if (!exists) {
-      throw cartItemNotFoundError();
-    }
-
-    return this.repository.updateItem({
-      userId,
-      productId,
-      quantity: input.quantity,
-    });
+    return resolveCartMutation(
+      await this.repository.updateItem({
+        userId,
+        productId,
+        quantity: input.quantity,
+      }),
+    );
   }
 
   async removeItem(userId: string, productId: string) {
-    const cart = await this.repository.findOrCreateByUserId(userId);
-    const exists = cart.items.some((item) => item.productId === productId);
-
-    if (!exists) {
-      throw cartItemNotFoundError();
-    }
-
-    return this.repository.removeItem(userId, productId);
+    return resolveCartMutation(
+      await this.repository.removeItem(userId, productId),
+    );
   }
 
-  clearCart(userId: string) {
-    return this.repository.clear(userId);
+  async clearCart(userId: string) {
+    return resolveCartMutation(await this.repository.clear(userId));
   }
+}
 
-  private async assertCanUseProduct(
-    productId: string,
-    quantity: number,
-  ): Promise<void> {
-    const product = await this.repository.findProductById(productId);
-
-    if (!product || product.isDeleted) {
+function resolveCartMutation(result: CartMutationResult): CartWithItems {
+  switch (result.outcome) {
+    case "success":
+      return result.cart;
+    case "product_unavailable":
       throw productUnavailableError();
-    }
-
-    if (product.stockQuantity < quantity) {
+    case "insufficient_stock":
       throw productUnavailableError("Requested quantity exceeds stock");
-    }
+    case "item_not_found":
+      throw cartItemNotFoundError();
+    case "concurrent_modification":
+      throw cartConcurrentModificationError();
   }
 }
 

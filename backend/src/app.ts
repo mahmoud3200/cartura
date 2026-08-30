@@ -3,19 +3,26 @@ import express from "express";
 import helmet from "helmet";
 
 import { env, frontendOrigins } from "./config/env.js";
-import { openApiDocument } from "./docs/openapi.js";
-import { createSwaggerHtml } from "./docs/swagger-ui.js";
-import { authNodeHandler, signUpWithEmail } from "./modules/auth/index.js";
+import { getTrustProxySetting } from "./config/rate-limit.js";
+import { docsRouter } from "./docs/index.js";
+import {
+  authNodeHandler,
+  normalizeEmailSignUpRequest,
+} from "./modules/auth/index.js";
+import { systemController } from "./modules/system/index.js";
 import { apiRouter } from "./routes/api-router.js";
 import { routeNotFoundError } from "./shared/errors/index.js";
 import { errorHandler } from "./shared/middleware/error-handler.js";
+import { requireInternalApiAccess } from "./shared/middleware/internal-api-auth.js";
 import { notFound } from "./shared/middleware/not-found.js";
+import { coarseRateLimit } from "./shared/middleware/rate-limit.js";
 import { requestContext } from "./shared/middleware/request-context.js";
 
 export function createApp() {
   const app = express();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", getTrustProxySetting());
 
   app.use(
     helmet({
@@ -56,16 +63,20 @@ export function createApp() {
     );
   }
 
+  app.use("/api/v1", requireInternalApiAccess);
+
   app.post(
     "/api/v1/auth/sign-up/email",
     express.json({
       limit: "1mb",
     }),
-    signUpWithEmail,
+    normalizeEmailSignUpRequest,
   );
 
   app.all("/api/v1/auth", authNodeHandler);
   app.all("/api/v1/auth/{*any}", authNodeHandler);
+
+  app.use("/api/v1", coarseRateLimit);
 
   // prevents users from sending JSON bodies higher than 1mb
   app.use(
@@ -80,20 +91,8 @@ export function createApp() {
     }),
   );
 
-  app.get("/health", (_req, res) => {
-    res.status(200).json({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  app.get("/openapi.json", (_req, res) => {
-    res.status(200).json(openApiDocument);
-  });
-
-  app.get("/docs", (_req, res) => {
-    res.type("html").send(createSwaggerHtml("/openapi.json"));
-  });
+  app.get("/health", systemController.health);
+  app.use(docsRouter);
 
   app.use("/api/v1", apiRouter);
 

@@ -1,5 +1,8 @@
 import "server-only";
 
+import { getInternalServiceHeaders } from "@/shared/api/internal-service-auth";
+import { getRateLimitResponseMetadata } from "@/shared/api/rate-limit-headers";
+
 const apiBaseUrl = (process.env.CARTURA_API_URL ?? "http://localhost:4000")
   .replace(/\/$/, "");
 
@@ -8,6 +11,9 @@ export class StorefrontApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly payload: unknown,
+    public readonly code?: string,
+    public readonly retryAfterSeconds?: number,
+    public readonly responseHeaders: Headers = new Headers(),
   ) {
     super(message);
     this.name = "StorefrontApiError";
@@ -15,18 +21,25 @@ export class StorefrontApiError extends Error {
 }
 
 export async function fetchCatalogJson(path: string) {
+  const internalServiceHeaders = await getInternalServiceHeaders();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
       Accept: "application/json",
+      ...internalServiceHeaders,
     },
   });
   const payload = await readPayload(response);
 
   if (!response.ok) {
+    const metadata = getRateLimitResponseMetadata(response, payload);
+
     throw new StorefrontApiError(
       getErrorMessage(payload),
       response.status,
       payload,
+      metadata.code,
+      metadata.retryAfterSeconds,
+      metadata.headers,
     );
   }
 

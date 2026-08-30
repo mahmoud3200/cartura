@@ -40,12 +40,12 @@ export function AddressCard({ address }: { address: AddressResponse }) {
 
   return (
     <article className="rounded-xl border border-border bg-card p-5 sm:p-6">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-4">
+      <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <div className="flex min-w-0 gap-4">
           <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted">
             <MapPin className="size-5" strokeWidth={1.7} />
           </span>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-semibold">{address.addressName}</h2>
               {address.isDefault ? (
@@ -54,7 +54,7 @@ export function AddressCard({ address }: { address: AddressResponse }) {
                 </span>
               ) : null}
             </div>
-            <address className="mt-3 text-sm not-italic leading-6 text-muted-foreground">
+            <address className="mt-3 break-words text-sm not-italic leading-6 text-muted-foreground">
               <span className="text-foreground">{address.recipientName}</span>
               <br />
               {address.streetAddress}

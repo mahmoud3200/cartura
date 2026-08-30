@@ -11,6 +11,8 @@ export type RequestWithContext = Request & {
   requestContext?: RequestContext;
 };
 
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+
 export const requestContext: RequestHandler = (req, res, next) => {
   const requestId = getRequestId(req);
 
@@ -25,19 +27,23 @@ export const requestContext: RequestHandler = (req, res, next) => {
 };
 
 export function getRequestContext(req: Request): RequestContext {
-  return (
-    (req as RequestWithContext).requestContext ?? {
+  const requestWithContext = req as RequestWithContext;
+
+  if (!requestWithContext.requestContext) {
+    requestWithContext.requestContext = {
       requestId: randomUUID(),
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
-    }
-  );
+    };
+  }
+
+  return requestWithContext.requestContext;
 }
 
 function getRequestId(req: Request): string {
   const header = req.get("x-request-id");
 
-  if (header && header.length <= 200) {
+  if (header && REQUEST_ID_PATTERN.test(header)) {
     return header;
   }
 

@@ -2,6 +2,7 @@ import { Queue, Worker, type Job } from "bullmq";
 import { Redis } from "ioredis";
 
 import { env } from "../../config/env.js";
+import { mediaService } from "../../modules/media/media.service.js";
 import { notificationDeliveryService } from "../../modules/notifications/index.js";
 import { ordersService } from "../../modules/orders/index.js";
 import { outboxService } from "../../modules/outbox/index.js";
@@ -16,6 +17,8 @@ const workerTasks = {
   notificationDeliveries: () =>
     notificationDeliveryService.processPending(),
   staleOrders: () => ordersService.cancelExpiredAwaitingPaymentOrders(),
+  expiredMedia: () =>
+    mediaService.cleanupExpiredPending(env.MEDIA_CLEANUP_BATCH_SIZE),
 } satisfies Record<string, () => Promise<unknown>>;
 
 type WorkerTaskName = keyof typeof workerTasks;
@@ -70,13 +73,19 @@ export async function startBackgroundWorkers(): Promise<WorkerHandle> {
           { every: env.STALE_ORDER_POLL_INTERVAL_MS },
           { name: "staleOrders" },
         ),
+        queue.upsertJobScheduler(
+          "expiredMedia",
+          { every: env.MEDIA_CLEANUP_POLL_INTERVAL_MS },
+          { name: "expiredMedia" },
+        ),
       ]),
       10_000,
     );
   } catch (error) {
+    await Promise.allSettled([queue.close()]);
     queueConnection.disconnect();
     throw new Error(
-      `BullMQ could not initialize through ${env.REDIS_URL}. Run "pnpm redis:up" and verify that Redis is healthy.`,
+      'BullMQ could not initialize. Run "pnpm redis:up" and verify that Redis is healthy.',
       { cause: error },
     );
   }
@@ -88,23 +97,32 @@ export async function startBackgroundWorkers(): Promise<WorkerHandle> {
     console.error("BullMQ worker Redis connection failed", error.message);
   });
 
-  const worker = new Worker<undefined, unknown, WorkerTaskName>(
-    MAINTENANCE_QUEUE,
-    async (job: Job<undefined, unknown, WorkerTaskName>) => {
-      const task = workerTasks[job.name];
+  let worker: Worker<undefined, unknown, WorkerTaskName> | undefined;
+  try {
+    worker = new Worker<undefined, unknown, WorkerTaskName>(
+      MAINTENANCE_QUEUE,
+      async (job: Job<undefined, unknown, WorkerTaskName>) => {
+        const task = workerTasks[job.name];
 
-      if (!task) {
-        throw new Error(`Unknown maintenance job "${job.name}"`);
-      }
+        if (!task) {
+          throw new Error(`Unknown maintenance job "${job.name}"`);
+        }
 
-      return task();
-    },
-    {
-      connection: workerConnection,
-      prefix: env.BULLMQ_PREFIX,
-      concurrency: 3,
-    },
-  );
+        return task();
+      },
+      {
+        connection: workerConnection,
+        prefix: env.BULLMQ_PREFIX,
+        concurrency: 3,
+      },
+    );
+    await withTimeout(worker.waitUntilReady(), 10_000);
+  } catch (error) {
+    await Promise.allSettled([worker?.close(true), queue.close()]);
+    queueConnection.disconnect();
+    workerConnection.disconnect();
+    throw new Error("BullMQ worker could not initialize.", { cause: error });
+  }
 
   worker.on("failed", (job, error) => {
     console.error(

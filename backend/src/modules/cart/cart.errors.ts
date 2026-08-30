@@ -1,19 +1,16 @@
-import { httpError } from "../../shared/errors/index.js";
-import { notFoundError as sharedNotFoundError } from "../../shared/errors/index.js";
-
-export function cartHttpError(
-  statusCode: number,
-  code: string,
-  message: string,
-  details?: unknown,
-): Error {
-  return httpError(statusCode, code, message, details);
-}
+import { conflictError, notFoundError } from "../../shared/errors/index.js";
 
 export function productUnavailableError(message = "Product is unavailable") {
-  return cartHttpError(409, "PRODUCT_UNAVAILABLE", message);
+  return conflictError("PRODUCT_UNAVAILABLE", message);
 }
 
 export function cartItemNotFoundError() {
-  return sharedNotFoundError("CART_ITEM_NOT_FOUND", "Cart item not found");
+  return notFoundError("CART_ITEM_NOT_FOUND", "Cart item not found");
+}
+
+export function cartConcurrentModificationError() {
+  return conflictError(
+    "CART_CONCURRENT_MODIFICATION",
+    "The cart changed during this request; please retry",
+  );
 }

@@ -2,13 +2,14 @@ import type { RequestHandler } from "express";
 
 import { parseInput } from "../../../shared/validation/parse-input.js";
 import {
-  getOptionalAuthenticatedUserId,
-  getPathParam,
+  getAuthenticatedUserId,
 } from "../../../shared/utils/request.utils.js";
 import { getAuditContext } from "../../audit-logs/audit-context.js";
 import { mapPaginatedResult } from "../../../shared/pagination/pagination.js";
 import { mapCategory } from "./categories.mapper.js";
 import {
+  categoryIdParamsSchema,
+  categorySlugParamsSchema,
   createCategoryRequestSchema,
   listCategoriesQuerySchema,
   updateCategoryRequestSchema,
@@ -29,9 +30,8 @@ export class CategoriesController {
 
   getBySlug: RequestHandler = async (req, res, next) => {
     try {
-      const category = await categoriesService.getBySlug(
-        getPathParam(req.params.slug),
-      );
+      const { slug } = parseInput(categorySlugParamsSchema, req.params);
+      const category = await categoriesService.getBySlug(slug);
 
       res.status(200).json({ data: mapCategory(category) });
     } catch (error) {
@@ -44,7 +44,7 @@ export class CategoriesController {
       const body = parseInput(createCategoryRequestSchema, req.body);
       const category = await categoriesService.create(
         body,
-        getOptionalAuthenticatedUserId(req),
+        getAuthenticatedUserId(req),
         getAuditContext(req),
       );
 
@@ -57,8 +57,9 @@ export class CategoriesController {
   update: RequestHandler = async (req, res, next) => {
     try {
       const body = parseInput(updateCategoryRequestSchema, req.body);
+      const { categoryId } = parseInput(categoryIdParamsSchema, req.params);
       const category = await categoriesService.update(
-        getPathParam(req.params.categoryId),
+        categoryId,
         body,
         getAuditContext(req),
       );
@@ -71,8 +72,9 @@ export class CategoriesController {
 
   softDelete: RequestHandler = async (req, res, next) => {
     try {
+      const { categoryId } = parseInput(categoryIdParamsSchema, req.params);
       await categoriesService.softDelete(
-        getPathParam(req.params.categoryId),
+        categoryId,
         getAuditContext(req),
       );
 

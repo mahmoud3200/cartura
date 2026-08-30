@@ -1,5 +1,7 @@
 export type OAuthFlow = "login" | "register";
 
+const oauthCompletionPath = "/auth/oauth/complete";
+
 export function getSafeInternalRedirect(
   value: string,
   fallback = "/",
@@ -11,6 +13,10 @@ export function getOAuthEntryPath(flow: OAuthFlow) {
   return flow === "register" ? "/auth/register" : "/auth/login";
 }
 
+export function getOAuthCompletionRedirect(value: string | null) {
+  return getSafeInternalRedirect(value ?? "/");
+}
+
 export function createOAuthRedirectUrls({
   frontendUrl,
   redirectTo,
@@ -20,16 +26,17 @@ export function createOAuthRedirectUrls({
   redirectTo: string;
   flow: OAuthFlow;
 }) {
-  const callbackURL = new URL(
+  const completionURL = new URL(oauthCompletionPath, frontendUrl);
+  completionURL.searchParams.set(
+    "redirectTo",
     getSafeInternalRedirect(redirectTo),
-    frontendUrl,
-  ).toString();
+  );
   const errorCallbackURL = new URL(getOAuthEntryPath(flow), frontendUrl);
   errorCallbackURL.searchParams.set("oauth", "failed");
 
   return {
-    callbackURL,
+    callbackURL: completionURL.toString(),
     errorCallbackURL: errorCallbackURL.toString(),
-    newUserCallbackURL: callbackURL,
+    newUserCallbackURL: completionURL.toString(),
   };
 }

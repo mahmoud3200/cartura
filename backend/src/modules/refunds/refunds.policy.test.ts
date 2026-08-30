@@ -6,6 +6,7 @@ import {
   countsTowardRefundedAmount,
   createCashRefundResult,
   getRefundEligibilityDeadline,
+  getReturnRequestEligibilityDeadline,
   getRefundMethod,
   isReturnRequestWithinEligibilityWindow,
   isWithinRefundWindow,
@@ -41,6 +42,10 @@ test("a rejection opens a fresh fourteen-day request window", () => {
     latestRejectedAt: new Date("2026-08-01T10:00:00.000Z"),
   };
 
+  assert.equal(
+    getReturnRequestEligibilityDeadline(input).toISOString(),
+    "2026-08-15T10:00:00.000Z",
+  );
   assert.equal(
     isReturnRequestWithinEligibilityWindow(
       input,

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { actionFailure, getString } from "@/shared/lib/actions-utils";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import { setDefaultAddress } from "../api/addresses-api";
 import type { AccountActionState } from "../types";
@@ -21,6 +22,7 @@ export async function setDefaultAddressAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     await setDefaultAddress(addressId.data);
     revalidatePath("/settings/addresses");
     revalidatePath("/settings");

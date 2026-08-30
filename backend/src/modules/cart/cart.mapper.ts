@@ -1,15 +1,22 @@
-import type { Cart } from "@cartura/contracts/cart";
+import type { Cart, CartItem } from "@cartura/contracts/cart";
 
-import type { CartItemWithProduct, CartWithItems } from "./cart.types.js";
+import { Prisma } from "../../generated/prisma/client.js";
+import type {
+  CartItemWithProduct,
+  CartWithItems,
+} from "./cart.repository.js";
 
 export function mapCart(cart: CartWithItems): Cart {
   const items = cart.items.map(mapCartItem);
-  const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const subtotal = cart.items.reduce(
+    (sum, item) => sum.plus(item.product.price.mul(item.quantity)),
+    new Prisma.Decimal(0),
+  );
 
   return {
     id: cart.id,
     userId: cart.userId,
-    subtotal,
+    subtotal: subtotal.toDecimalPlaces(2).toNumber(),
     itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     uniqueItemCount: items.length,
     createdAt: cart.createdAt.toISOString(),
@@ -18,17 +25,15 @@ export function mapCart(cart: CartWithItems): Cart {
   };
 }
 
-function mapCartItem(item: CartItemWithProduct) {
-  const unitPrice = Number(item.product.price);
-  const primaryImage = item.product.images
-    .slice()
-    .sort((left, right) => left.displayOrder - right.displayOrder)[0];
+function mapCartItem(item: CartItemWithProduct): CartItem {
+  const unitPrice = item.product.price.toDecimalPlaces(2);
+  const primaryImage = item.product.images[0];
 
   return {
     productId: item.productId,
     quantity: item.quantity,
-    unitPrice,
-    lineTotal: unitPrice * item.quantity,
+    unitPrice: unitPrice.toNumber(),
+    lineTotal: unitPrice.mul(item.quantity).toDecimalPlaces(2).toNumber(),
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
     product: {

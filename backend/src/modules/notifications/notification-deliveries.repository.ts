@@ -25,7 +25,10 @@ export class NotificationDeliveriesRepository {
           },
           {
             status: "processing",
-            updatedAt: { lte: staleBefore },
+            OR: [
+              { claimedAt: null },
+              { claimedAt: { lte: staleBefore } },
+            ],
           },
         ],
       },
@@ -35,57 +38,83 @@ export class NotificationDeliveriesRepository {
     });
   }
 
-  async claim(deliveryId: string, staleBefore: Date): Promise<boolean> {
+  async claim(input: {
+    deliveryId: string;
+    availableAt: Date;
+    staleBefore: Date;
+    claimToken: string;
+  }): Promise<boolean> {
     const claimed = await prisma.notificationDelivery.updateMany({
       where: {
-        id: deliveryId,
+        id: input.deliveryId,
         OR: [
-          { status: "pending" },
+          {
+            status: "pending",
+            OR: [
+              { scheduledAt: null },
+              { scheduledAt: { lte: input.availableAt } },
+            ],
+          },
           {
             status: "processing",
-            updatedAt: { lte: staleBefore },
+            OR: [
+              { claimedAt: null },
+              { claimedAt: { lte: input.staleBefore } },
+            ],
           },
         ],
       },
       data: {
         status: "processing",
         attempts: { increment: 1 },
+        claimToken: input.claimToken,
+        claimedAt: input.availableAt,
       },
     });
 
     return claimed.count === 1;
   }
 
-  markSent(
+  async markSent(
     deliveryId: string,
+    claimToken: string,
     providerMessageId: string | null,
     sentAt: Date,
   ) {
-    return prisma.notificationDelivery.update({
-      where: { id: deliveryId },
+    const updated = await prisma.notificationDelivery.updateMany({
+      where: { id: deliveryId, status: "processing", claimToken },
       data: {
         status: "sent",
         providerMessageId,
         failureReason: null,
         sentAt,
+        claimToken: null,
+        claimedAt: null,
       },
     });
+
+    return updated.count === 1;
   }
 
-  recordFailure(
+  async recordFailure(
     deliveryId: string,
+    claimToken: string,
     status: NotificationDeliveryFailureStatus,
     scheduledAt: Date,
     failureReason: string,
   ) {
-    return prisma.notificationDelivery.update({
-      where: { id: deliveryId },
+    const updated = await prisma.notificationDelivery.updateMany({
+      where: { id: deliveryId, status: "processing", claimToken },
       data: {
         status,
         scheduledAt,
         failureReason,
+        claimToken: null,
+        claimedAt: null,
       },
     });
+
+    return updated.count === 1;
   }
 }
 

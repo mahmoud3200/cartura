@@ -2,33 +2,29 @@ import { z } from "zod";
 
 import {
   dataResponseSchema,
+  paginatedQuerySchema,
   paginatedResponseSchema,
-  paginationQuerySchema,
 } from "../common/index.js";
 
-export const listNotificationsQuerySchema = z.intersection(
-  paginationQuerySchema,
-  z.object({
-    unreadOnly: z.coerce.boolean().optional(),
-  }),
-);
+const booleanQuerySchema = z.preprocess((value) => {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return value;
+}, z.boolean());
+
+export const listNotificationsQuerySchema = paginatedQuerySchema({
+  unreadOnly: booleanQuerySchema.optional(),
+});
 
 export const notificationIdParamsSchema = z.object({
   notificationId: z.uuid(),
-});
+}).strict();
 
 export const notificationDeliverySchema = z.object({
   id: z.uuid(),
   channel: z.string(),
-  recipient: z.string(),
   status: z.string(),
-  attempts: z.number().int().nonnegative(),
-  providerMessageId: z.string().nullable(),
-  failureReason: z.string().nullable(),
-  scheduledAt: z.string().nullable(),
-  sentAt: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  sentAt: z.iso.datetime().nullable(),
 });
 
 export const notificationSchema = z.object({
@@ -38,8 +34,8 @@ export const notificationSchema = z.object({
   title: z.string(),
   body: z.string(),
   data: z.json().nullable(),
-  readAt: z.string().nullable(),
-  createdAt: z.string(),
+  readAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
   deliveries: z.array(notificationDeliverySchema),
 });
 

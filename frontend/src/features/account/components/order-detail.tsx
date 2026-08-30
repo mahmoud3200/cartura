@@ -1,5 +1,5 @@
 import type { OrderSummary } from "@cartura/contracts/orders";
-import type { Refund } from "@cartura/contracts/refunds";
+import type { CustomerRefund } from "@cartura/contracts/refunds";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -22,7 +22,7 @@ export function OrderDetail({
   refunds,
 }: {
   order: OrderSummary;
-  refunds: Refund[];
+  refunds: CustomerRefund[];
 }) {
   return (
     <div>

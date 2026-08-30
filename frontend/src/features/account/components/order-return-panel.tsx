@@ -1,5 +1,5 @@
 import type { OrderSummary } from "@cartura/contracts/orders";
-import type { Refund } from "@cartura/contracts/refunds";
+import type { CustomerRefund } from "@cartura/contracts/refunds";
 
 import { getOrderReturnPanelState } from "../lib/order-return";
 import { OrderReturnRequestForm } from "../ui/order-return-request-form";
@@ -8,7 +8,7 @@ import { OrderReturnUnavailable } from "../ui/order-return-unavailable";
 
 type OrderReturnPanelProps = {
   order: OrderSummary;
-  refunds: Refund[];
+  refunds: CustomerRefund[];
 };
 
 export function OrderReturnPanel({ order, refunds }: OrderReturnPanelProps) {

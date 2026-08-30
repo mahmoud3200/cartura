@@ -106,13 +106,16 @@ export async function sendTwoFactorOtp(input: SendTwoFactorOtpRequest) {
 export async function verifyTwoFactorOtp(
   input: VerifyTwoFactorOtpRequest,
 ): Promise<LoginResponse> {
-  const payload = await serverApiFetch<unknown>("/api/v1/auth/two-factor/verify-otp", {
-    method: "POST",
-    json: input,
-    forwardCookies: true,
-    storeCookies: true,
-    withAuth: false,
-  });
+  const payload = await serverApiFetch<unknown>(
+    "/api/v1/auth/two-factor/verify-otp",
+    {
+      method: "POST",
+      json: input,
+      forwardCookies: true,
+      storeCookies: true,
+      withAuth: false,
+    },
+  );
 
   return loginResponseSchema.parse(payload);
 }
@@ -138,7 +141,7 @@ export async function startOAuth(input: OAuthAuthorizeRequest) {
   return oauthAuthorizeResponseSchema.parse(payload).url;
 }
 
-export const getCurrentAuthUser = cache(async function getCurrentAuthUser() {
+export const getCurrentAuthSession = cache(async function getCurrentAuthSession() {
   let payload: unknown;
 
   try {
@@ -154,5 +157,9 @@ export const getCurrentAuthUser = cache(async function getCurrentAuthUser() {
     throw error;
   }
 
-  return authMeResponseSchema.parse(payload).user;
+  return authMeResponseSchema.parse(payload);
+});
+
+export const getCurrentAuthUser = cache(async function getCurrentAuthUser() {
+  return (await getCurrentAuthSession())?.user ?? null;
 });

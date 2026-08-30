@@ -2,11 +2,12 @@
 
 import {
   reviewRefundRequestSchema,
-  type Refund,
+  type ManagementRefund,
   type ReviewRefundRequest,
 } from "@cartura/contracts/refunds";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -17,7 +18,7 @@ import { reviewManagementRefund } from "../api/refunds-api";
 export async function reviewRefundAction(
   refundId: string,
   input: ReviewRefundRequest,
-): Promise<ManagementActionResult<Refund>> {
+): Promise<ManagementActionResult<ManagementRefund>> {
   const id = z.uuid().safeParse(refundId);
   const review = reviewRefundRequestSchema.safeParse(input);
 
@@ -26,6 +27,7 @@ export async function reviewRefundAction(
   }
 
   try {
+    await enforceBffRateLimit("privileged");
     const refund = await reviewManagementRefund(id.data, review.data);
     revalidatePath("/dashboard/refunds");
     return { ok: true, data: refund };

@@ -1,4 +1,4 @@
-import type { Refund } from "@cartura/contracts/refunds";
+import type { CustomerRefund } from "@cartura/contracts/refunds";
 import { CalendarClock, PackageCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -7,10 +7,13 @@ import {
   formatAccountMoney,
   formatOrderStatus,
 } from "../lib/account-formatters";
-import { getRefundReasonLabel } from "../lib/order-return";
+import {
+  getCustomerRefundStatusMessage,
+  getRefundReasonLabel,
+} from "../lib/order-return";
 import { OrderRefundNotes } from "./order-refund-notes";
 
-export function OrderReturnStatus({ refund }: { refund: Refund }) {
+export function OrderReturnStatus({ refund }: { refund: CustomerRefund }) {
   const pickup = refund.resolution === "pickup";
 
   return (
@@ -29,6 +32,10 @@ export function OrderReturnStatus({ refund }: { refund: Refund }) {
           {formatOrderStatus(refund.status)}
         </span>
       </div>
+
+      <p className="mt-4 text-sm leading-6 text-muted-foreground">
+        {getCustomerRefundStatusMessage(refund.status)}
+      </p>
 
       <dl className="mt-5 grid gap-3 text-sm">
         <StatusRow

@@ -1,9 +1,11 @@
-import type { AnalyticsOverviewResponse } from "@cartura/contracts/analytics";
+import {
+  analyticsRecentOrderSchema,
+  analyticsRecentPaymentWebhookEventSchema,
+  analyticsRecentRefundSchema,
+  analyticsRecentUserSchema,
+  type AnalyticsOverviewResponse,
+} from "@cartura/contracts/analytics";
 
-import { mapOrder } from "../orders/orders.mapper.js";
-import { mapPaymentWebhookEvent } from "../payments/payments.mapper.js";
-import { mapRefund } from "../refunds/refunds.mapper.js";
-import { mapUser } from "../users/users.mapper.js";
 import type { AnalyticsOverviewData } from "./analytics.types.js";
 
 export function mapAnalyticsOverview(
@@ -24,15 +26,56 @@ export function mapAnalyticsOverview(
     refundsByStatus: rangeSnapshot.refundsByStatus,
     paymentWebhooksByStatus: rangeSnapshot.paymentWebhooksByStatus,
     recent: {
-      orders: operational.recentOrders.map(mapOrder),
-      users: operational.recentUsers.map(mapUser),
-      refunds: operational.recentRefunds.map(mapRefund),
-      paymentWebhookEvents: operational.recentPaymentWebhookEvents.map((event) => {
-        const { payload: _payload, ...mappedEvent } =
-          mapPaymentWebhookEvent(event);
-
-        return mappedEvent;
-      }),
+      orders: operational.recentOrders.map((order) =>
+        analyticsRecentOrderSchema.parse({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          currency: order.currency,
+          createdAt: order.createdAt.toISOString(),
+          customer: {
+            name: order.user.name,
+            email: order.user.email,
+          },
+        }),
+      ),
+      users: operational.recentUsers.map((user) =>
+        analyticsRecentUserSchema.parse({
+          id: user.id,
+          name: user.name,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          accountStatus: user.accountStatus,
+        }),
+      ),
+      refunds: operational.recentRefunds.map((refund) =>
+        analyticsRecentRefundSchema.parse({
+          id: refund.id,
+          amount: refund.amount,
+          currency: refund.currency,
+          status: refund.status,
+          reasonCode: refund.reasonCode,
+          order: {
+            orderNumber: refund.payment.order.orderNumber,
+          },
+          customer: {
+            name: refund.payment.order.user.name,
+          },
+        }),
+      ),
+      paymentWebhookEvents: operational.recentPaymentWebhookEvents.map((event) =>
+        analyticsRecentPaymentWebhookEventSchema.parse({
+          id: event.id,
+          provider: event.provider,
+          providerEventId: event.providerEventId,
+          eventType: event.eventType,
+          status: event.status,
+          failureReason: event.failureReason,
+          receivedAt: event.receivedAt.toISOString(),
+        }),
+      ),
     },
   };
 }

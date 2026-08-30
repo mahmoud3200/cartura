@@ -1,3 +1,7 @@
+import {
+  AUDIT_ACTIONS,
+  AUDIT_RESOURCE_TYPES,
+} from "@cartura/contracts/audit-logs";
 import { SYSTEM_ROLES, type PermissionName } from "./authorization.constants.js";
 import type { AuditContext } from "../audit-logs/audit-logs.types.js";
 import {
@@ -20,25 +24,16 @@ import {
   includesAllPermissions,
   includesAnyPermission,
 } from "./authorization.utils.js";
-import {
-  cacheService,
-  type CacheService,
-} from "../../infrastructure/cache/index.js";
 import { getUserRoleUpdateDenial } from "./authorization.policy.js";
 import {
   cantChangeOwnRoleError,
   cantChangeProtectedUserRoleError,
 } from "./authorization.errors.js";
-
-const authorizationCacheKeys = {
-  userPermissions: (userId: string) => `authorization:user:${userId}:permissions`,
-  allUserPermissions: "authorization:user:*:permissions",
-};
+import { hasPrismaErrorCode } from "./authorization.persistence.js";
 
 export class AuthorizationService {
   constructor(
     private readonly repository: AuthorizationRepository = authorizationRepository,
-    private readonly cache: CacheService = cacheService,
   ) {}
 
   listPermissions() {
@@ -64,10 +59,7 @@ export class AuthorizationService {
   }
 
   listUserPermissionNames(userId: string) {
-    return this.cache.remember(
-      authorizationCacheKeys.userPermissions(userId),
-      () => this.repository.findUserPermissionNames(userId),
-    );
+    return this.repository.findUserPermissionNames(userId);
   }
 
   async hasAllPermissions(
@@ -97,6 +89,8 @@ export class AuthorizationService {
   }
 
   async createCustomRole(input: CreateRoleRequest, audit?: AuditContext) {
+    const permissionIds = normalizePermissionIds(input.permissionIds);
+    await this.assertPermissionIdsExist(permissionIds);
     const existingRole = await this.repository.findRoleByName(input.name);
 
     if (existingRole) {
@@ -106,16 +100,23 @@ export class AuthorizationService {
       );
     }
 
-    return this.repository.createCustomRole(input, audit ? {
-      ...audit,
-      action: "role.create",
-      resourceType: "role",
-      metadata: {
-        name: input.name,
-        description: input.description ?? null,
-        permissionIds: input.permissionIds,
-      },
-    } : undefined);
+    try {
+      return await this.repository.createCustomRole(
+        { ...input, permissionIds },
+        audit ? {
+          ...audit,
+          action: AUDIT_ACTIONS.ROLE_CREATE,
+          resourceType: AUDIT_RESOURCE_TYPES.ROLE,
+          metadata: {
+            name: input.name,
+            description: input.description ?? null,
+            permissionIds,
+          },
+        } : undefined,
+      );
+    } catch (error) {
+      throwRoleWriteError(error);
+    }
   }
 
   async updateCustomRole(input: UpdateRoleRequest & {
@@ -134,55 +135,52 @@ export class AuthorizationService {
       }
     }
 
-    const updatedRole = await this.repository.updateCustomRole(input, input.audit ? {
-      ...input.audit,
-      action: "role.update",
-      resourceType: "role",
-      resourceId: input.roleId,
-      metadata: {
-        previous: {
-          name: role.name,
-          description: role.description,
+    try {
+      return await this.repository.updateCustomRole(input, input.audit ? {
+        ...input.audit,
+        action: AUDIT_ACTIONS.ROLE_UPDATE,
+        resourceType: AUDIT_RESOURCE_TYPES.ROLE,
+        resourceId: input.roleId,
+        metadata: {
+          previous: {
+            name: role.name,
+            description: role.description,
+          },
+          next: {
+            name: input.name ?? role.name,
+            description:
+              input.description === undefined
+                ? role.description
+                : input.description,
+          },
         },
-        next: {
-          name: input.name ?? role.name,
-          description:
-            input.description === undefined
-              ? role.description
-              : input.description,
-          permissionIds:
-            input.permissionIds ??
-            role.rolePermissions.map((permission) => permission.permissionId),
-        },
-      },
-    } : undefined);
-
-    if (input.permissionIds !== undefined) {
-      await this.cache.deleteByPattern(
-        authorizationCacheKeys.allUserPermissions,
-      );
+      } : undefined);
+    } catch (error) {
+      throwRoleWriteError(error);
     }
-
-    return updatedRole;
   }
 
   async replaceRolePermissions(input: UpdateRolePermissionsRequest & {
     roleId: string;
     audit?: AuditContext | undefined;
   }): Promise<void> {
+    const permissionIds = normalizePermissionIds(input.permissionIds);
+    await this.assertPermissionIdsExist(permissionIds);
     const role = await this.assertCustomRole(input.roleId);
-    await this.repository.replaceRolePermissions(input, input.audit ? {
-      ...input.audit,
-      action: "role.permissions.replace",
-      resourceType: "role",
-      resourceId: input.roleId,
-      metadata: {
-        name: role.name,
-      },
-    } : undefined);
-    await this.cache.deleteByPattern(
-      authorizationCacheKeys.allUserPermissions,
-    );
+    try {
+      await this.repository.replaceRolePermissions(
+        { ...input, permissionIds },
+        input.audit ? {
+          ...input.audit,
+          action: AUDIT_ACTIONS.ROLE_PERMISSIONS_REPLACE,
+          resourceType: AUDIT_RESOURCE_TYPES.ROLE,
+          resourceId: input.roleId,
+          metadata: { name: role.name },
+        } : undefined,
+      );
+    } catch (error) {
+      throwRoleWriteError(error);
+    }
   }
 
   async deleteCustomRole(roleId: string, audit?: AuditContext) {
@@ -204,8 +202,8 @@ export class AuthorizationService {
       customerRole.id,
       audit ? {
         ...audit,
-        action: "role.delete",
-        resourceType: "role",
+        action: AUDIT_ACTIONS.ROLE_DELETE,
+        resourceType: AUDIT_RESOURCE_TYPES.ROLE,
         resourceId: roleId,
         metadata: {
           name: role.name,
@@ -215,9 +213,6 @@ export class AuthorizationService {
           ),
         },
       } : undefined,
-    );
-    await this.cache.deleteByPattern(
-      authorizationCacheKeys.allUserPermissions,
     );
     return deletedRole;
   }
@@ -276,8 +271,8 @@ export class AuthorizationService {
       },
       input.audit ? {
         ...input.audit,
-        action: "user_role.update",
-        resourceType: "user",
+        action: AUDIT_ACTIONS.USER_ROLE_UPDATE,
+        resourceType: AUDIT_RESOURCE_TYPES.USER,
         resourceId: input.userId,
         metadata: {
           previousRoleId: user.assignedRole?.roleId ?? null,
@@ -286,10 +281,24 @@ export class AuthorizationService {
         },
       } : undefined,
     );
-    await this.cache.delete(
-      authorizationCacheKeys.userPermissions(input.userId),
-    );
     return assignment;
+  }
+
+  private async assertPermissionIdsExist(permissionIds: readonly string[]) {
+    const existingPermissionIds = await this.repository.findPermissionIds(
+      permissionIds,
+    );
+    const existing = new Set(existingPermissionIds);
+    const missingPermissionIds = permissionIds.filter((id) => !existing.has(id));
+
+    if (missingPermissionIds.length > 0) {
+      throw httpError(
+        400,
+        "PERMISSION_IDS_INVALID",
+        "One or more permissions do not exist",
+        { permissionIds: missingPermissionIds },
+      );
+    }
   }
 
   private async assertRoleCanBeAssigned(roleId: string) {
@@ -328,3 +337,26 @@ export class AuthorizationService {
 }
 
 export const authorizationService = new AuthorizationService();
+
+function normalizePermissionIds(permissionIds: readonly string[]) {
+  return [...new Set(permissionIds)].sort();
+}
+
+function throwRoleWriteError(error: unknown): never {
+  if (hasPrismaErrorCode(error, "P2002")) {
+    throw conflictError(
+      "ROLE_NAME_ALREADY_EXISTS",
+      "A role with this name already exists",
+    );
+  }
+
+  if (hasPrismaErrorCode(error, "P2003")) {
+    throw httpError(
+      400,
+      "PERMISSION_IDS_INVALID",
+      "One or more permissions do not exist",
+    );
+  }
+
+  throw error;
+}

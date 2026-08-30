@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createOAuthRedirectUrls,
+  getOAuthCompletionRedirect,
   getOAuthEntryPath,
   getSafeInternalRedirect,
 } from "./auth-redirects";
@@ -27,11 +28,20 @@ describe("auth redirects", () => {
         flow: "register",
       }),
     ).toEqual({
-      callbackURL: "https://shop.cartura.test/dashboard",
+      callbackURL:
+        "https://shop.cartura.test/auth/oauth/complete?redirectTo=%2Fdashboard",
       errorCallbackURL:
         "https://shop.cartura.test/auth/register?oauth=failed",
-      newUserCallbackURL: "https://shop.cartura.test/dashboard",
+      newUserCallbackURL:
+        "https://shop.cartura.test/auth/oauth/complete?redirectTo=%2Fdashboard",
     });
+  });
+
+  it("keeps OAuth completion redirects on this site", () => {
+    expect(getOAuthCompletionRedirect("/settings/orders")).toBe(
+      "/settings/orders",
+    );
+    expect(getOAuthCompletionRedirect("https://malicious.example")).toBe("/");
   });
 
   it("returns the page that initiated OAuth", () => {

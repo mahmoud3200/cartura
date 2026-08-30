@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { CreateNotificationInput } from "../notifications/index.js";
 import type { OutboxEventPayload } from "./outbox.types.js";
 
@@ -14,43 +16,57 @@ export function getOutboxErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown outbox error";
 }
 
-export function getNotificationFromOutboxPayload(
-  payload: OutboxEventPayload,
-  fallbackType: string,
-): CreateNotificationInput | null {
-  const record = asRecord(payload);
-  const notification = record ? asRecord(record.notification) : null;
+const notificationPayloadSchema = z.object({
+  notification: z.object({
+    userId: z.uuid(),
+    type: z.string().trim().min(1),
+    title: z.string().trim().min(1),
+    body: z.string().trim().min(1),
+    data: z.record(z.string(), z.unknown()).optional(),
+    emailRecipient: z.email().nullable().optional(),
+  }),
+});
 
-  if (!notification) {
-    return null;
+export function getNotificationFromOutboxPayload(
+  event: {
+    aggregateType: string;
+    eventType: string;
+    payload: OutboxEventPayload;
+  },
+): CreateNotificationInput {
+  const parsed = notificationPayloadSchema.safeParse(event.payload);
+
+  if (!parsed.success) {
+    throw new Error("Invalid notification outbox payload");
   }
 
-  const input = {
-    userId: stringValue(notification.userId),
-    type: stringValue(notification.type || fallbackType),
-    title: stringValue(notification.title),
-    body: stringValue(notification.body),
-    emailRecipient:
-      typeof notification.emailRecipient === "string"
-        ? notification.emailRecipient
-        : null,
+  if (!isSupportedNotificationAggregate(event.aggregateType)) {
+    throw new Error("Unsupported notification outbox aggregate type");
+  }
+
+  if (
+    !event.eventType.startsWith(`${event.aggregateType}.`) ||
+    parsed.data.notification.type !== event.eventType
+  ) {
+    throw new Error("Notification outbox event type does not match its payload");
+  }
+
+  const notification = parsed.data.notification;
+
+  return {
+    userId: notification.userId,
+    type: notification.type,
+    title: notification.title,
+    body: notification.body,
+    ...(notification.data ? { data: notification.data } : {}),
+    ...(notification.emailRecipient !== undefined
+      ? { emailRecipient: notification.emailRecipient }
+      : {}),
   };
-  const data = asRecord(notification.data);
-
-  return data
-    ? {
-        ...input,
-        data,
-      }
-    : input;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
+function isSupportedNotificationAggregate(
+  aggregateType: string,
+): aggregateType is "order" | "payment" | "refund" {
+  return ["order", "payment", "refund"].includes(aggregateType);
 }

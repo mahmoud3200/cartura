@@ -3,6 +3,7 @@ import "server-only";
 import type {
   CreateProductRequest,
   ListProductsQuery,
+  UpdateProductInventoryRequest,
   UpdateProductRequest,
 } from "@cartura/contracts/catalog";
 import { productSchema } from "@cartura/contracts/catalog";
@@ -54,6 +55,20 @@ export async function updateManagementProduct(input: {
     {
       method: "PATCH",
       json: input.product,
+    },
+  );
+}
+
+export async function updateManagementProductInventory(input: {
+  productId: string;
+  inventory: UpdateProductInventoryRequest;
+}) {
+  return fetchManagementData(
+    `/api/v1/management/catalog/products/${input.productId}/inventory`,
+    productSchema,
+    {
+      method: "PATCH",
+      json: input.inventory,
     },
   );
 }

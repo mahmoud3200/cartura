@@ -12,7 +12,7 @@ import {
   getPaginationParams,
 } from "../../shared/pagination/pagination.js";
 
-const userInclude = {
+export const userInclude = {
   assignedRole: {
     include: {
       role: true,
@@ -20,9 +20,15 @@ const userInclude = {
   },
 } satisfies Prisma.UserInclude;
 
+export type UserWithRelations = Prisma.UserGetPayload<{
+  include: typeof userInclude;
+}>;
+
 export class UsersRepository {
+  constructor(private readonly database: typeof prisma = prisma) {}
+
   findAccountAccessById(userId: string) {
-    return prisma.user.findUnique({
+    return this.database.user.findUnique({
       where: { id: userId },
       select: {
         accountStatus: true,
@@ -37,21 +43,21 @@ export class UsersRepository {
     const { skip, take } = getPaginationParams(query);
 
     const [items, total] = await Promise.all([
-      prisma.user.findMany({
+      this.database.user.findMany({
         where,
         skip,
         take,
-        orderBy: [{ createdAt: "desc" }],
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         include: userInclude,
       }),
-      prisma.user.count({ where }),
+      this.database.user.count({ where }),
     ]);
 
     return createPaginatedResult(items, total, query);
   }
 
   findById(userId: string) {
-    return prisma.user.findUnique({
+    return this.database.user.findUnique({
       where: { id: userId },
       include: userInclude,
     });
@@ -60,39 +66,63 @@ export class UsersRepository {
   updateStatus(
     userId: string,
     input: UpdateUserStatusRequest,
+    expected: { updatedAt: Date; assignedRoleId: string | null },
     audit?: RecordAuditLogInput,
   ) {
     const data = buildStatusUpdateData(input);
 
-    return prisma.$transaction(async (tx) => {
-      const user = await tx.user.update({
-        where: { id: userId },
+    return this.database.$transaction(async (tx) => {
+      const updated = await tx.user.updateMany({
+        where: {
+          id: userId,
+          updatedAt: expected.updatedAt,
+          assignedRole: expected.assignedRoleId
+            ? { is: { roleId: expected.assignedRoleId } }
+            : { is: null },
+        },
         data,
-        include: userInclude,
       });
+
+      if (updated.count !== 1) return null;
+
+      if (input.accountStatus !== "active") {
+        await tx.authSession.deleteMany({ where: { userId } });
+      }
 
       if (audit) {
         await auditLogsRepository.create(audit, tx);
       }
 
-      return user;
+      return tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        include: userInclude,
+      });
     });
   }
 
-  activate(userId: string) {
-    return prisma.user.update({
-      where: { id: userId },
+  async activateExpired(
+    userId: string,
+    expectedSuspendedUntil: Date,
+    now = new Date(),
+  ) {
+    const updated = await this.database.user.updateMany({
+      where: {
+        id: userId,
+        accountStatus: "suspended",
+        suspendedUntil: { equals: expectedSuspendedUntil, lte: now },
+      },
       data: {
         accountStatus: "active",
         accountStatusReason: null,
         suspendedUntil: null,
       },
-      include: userInclude,
     });
+
+    return updated.count === 1;
   }
 
   activateExpiredSuspensions(now = new Date()) {
-    return prisma.user.updateMany({
+    return this.database.user.updateMany({
       where: {
         accountStatus: "suspended",
         suspendedUntil: {
@@ -133,7 +163,7 @@ function buildUserWhere(query: ListUsersQuery): Prisma.UserWhereInput {
 
 function buildStatusUpdateData(
   input: UpdateUserStatusRequest,
-): Prisma.UserUpdateInput {
+): Prisma.UserUpdateManyMutationInput {
   if (input.accountStatus === "active") {
     return {
       accountStatus: "active",

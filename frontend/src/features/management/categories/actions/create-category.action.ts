@@ -6,6 +6,7 @@ import {
   type CreateCategoryRequest,
 } from "@cartura/contracts/catalog";
 import { updateTag } from "next/cache";
+import { enforceBffRateLimit } from "@/shared/rate-limit";
 
 import {
   managementActionFailure,
@@ -24,6 +25,7 @@ export async function createCategoryAction(
   }
 
   try {
+    await enforceBffRateLimit("mutation");
     const category = await createManagementCategory(parsed.data);
     updateTag("catalog:categories");
     updateTag("catalog:products");

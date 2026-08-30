@@ -1,21 +1,21 @@
 import type { RequestHandler } from "express";
 
-import { PERMISSIONS } from "./authorization.constants.js";
 import {
   mapPaginatedResult,
 } from "../../shared/pagination/pagination.js";
 import {
   getAuthenticatedUserId,
   getOptionalAuthenticatedUserId,
-  getPathParam,
 } from "../../shared/utils/request.utils.js";
 import { parseInput } from "../../shared/validation/parse-input.js";
 import {
   createRoleSchema,
   listRolesQuerySchema,
+  roleIdParamsSchema,
   updateRolePermissionsSchema,
   updateRoleSchema,
   updateUserRoleSchema,
+  authorizationUserIdParamsSchema,
 } from "./authorization.schemas.js";
 import { authorizationService } from "./authorization.service.js";
 import { getAuditContext } from "../audit-logs/audit-context.js";
@@ -71,8 +71,9 @@ export class AuthorizationController {
 
   getRole: RequestHandler = async (req, res, next) => {
     try {
+      const { roleId } = parseInput(roleIdParamsSchema, req.params);
       const role = await authorizationService.getRole(
-        getPathParam(req.params.roleId),
+        roleId,
       );
 
       res.status(200).json({ data: mapRole(role) });
@@ -96,9 +97,10 @@ export class AuthorizationController {
 
   updateRole: RequestHandler = async (req, res, next) => {
     try {
+      const { roleId } = parseInput(roleIdParamsSchema, req.params);
       const body = parseInput(updateRoleSchema, req.body);
       const role = await authorizationService.updateCustomRole({
-        roleId: getPathParam(req.params.roleId),
+        roleId,
         ...body,
         audit: getAuditContext(req),
       });
@@ -110,9 +112,10 @@ export class AuthorizationController {
 
   updateRolePermissions: RequestHandler = async (req, res, next) => {
     try {
+      const { roleId } = parseInput(roleIdParamsSchema, req.params);
       const body = parseInput(updateRolePermissionsSchema, req.body);
       await authorizationService.replaceRolePermissions({
-        roleId: getPathParam(req.params.roleId),
+        roleId,
         permissionIds: body.permissionIds,
         audit: getAuditContext(req),
       });
@@ -124,8 +127,9 @@ export class AuthorizationController {
 
   deleteRole: RequestHandler = async (req, res, next) => {
     try {
+      const { roleId } = parseInput(roleIdParamsSchema, req.params);
       await authorizationService.deleteCustomRole(
-        getPathParam(req.params.roleId),
+        roleId,
         getAuditContext(req),
       );
       res.status(204).send();
@@ -136,10 +140,14 @@ export class AuthorizationController {
 
   updateUserRole: RequestHandler = async (req, res, next) => {
     try {
+      const { userId } = parseInput(
+        authorizationUserIdParamsSchema,
+        req.params,
+      );
       const body = parseInput(updateUserRoleSchema, req.body);
 
       await authorizationService.updateUserRole({
-        userId: getPathParam(req.params.userId),
+        userId,
         roleId: body.roleId,
         actingUserId: getAuthenticatedUserId(req),
         audit: getAuditContext(req),
@@ -154,4 +162,3 @@ export class AuthorizationController {
 }
 
 export const authorizationController = new AuthorizationController();
-export const AUTHORIZATION_ROUTE_PERMISSIONS = PERMISSIONS;

@@ -1,7 +1,7 @@
 import type { Product } from "@cartura/contracts/catalog";
 
 import { isCategoryApiVisible } from "../categories/categories.policy.js";
-import type { ProductWithRelations } from "./products.types.js";
+import type { ProductWithRelations } from "./products.repository.js";
 
 export function mapProduct(product: ProductWithRelations): Product {
   return {
@@ -31,17 +31,14 @@ export function mapProduct(product: ProductWithRelations): Product {
         createdAt: category.createdAt.toISOString(),
         updatedAt: category.updatedAt.toISOString(),
       })),
-    images: product.images
-      .slice()
-      .sort((left, right) => left.displayOrder - right.displayOrder)
-      .map((image) => ({
-        id: image.id,
-        mediaAssetId: image.mediaAssetId,
-        imageUrl: image.imageUrl,
-        altText: image.altText,
-        displayOrder: image.displayOrder,
-        createdAt: image.createdAt.toISOString(),
-        updatedAt: image.updatedAt.toISOString(),
-      })),
+    images: product.images.map((image) => ({
+      id: image.id,
+      mediaAssetId: image.mediaAssetId,
+      imageUrl: image.imageUrl,
+      altText: image.altText,
+      displayOrder: image.displayOrder,
+      createdAt: image.createdAt.toISOString(),
+      updatedAt: image.updatedAt.toISOString(),
+    })),
   };
 }

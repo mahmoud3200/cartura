@@ -3,15 +3,15 @@ import type { RequestHandler } from "express";
 import { mapPaginatedResult } from "../../shared/pagination/pagination.js";
 import {
   getAuthenticatedUserId,
-  getPathParam,
 } from "../../shared/utils/request.utils.js";
 import { parseInput } from "../../shared/validation/parse-input.js";
 import { getAuditContext } from "../audit-logs/audit-context.js";
-import { mapRefund } from "./refunds.mapper.js";
+import { mapCustomerRefund, mapRefund } from "./refunds.mapper.js";
 import {
   confirmRefundItemReceivedRequestSchema,
   createRefundRequestSchema,
   listRefundsQuerySchema,
+  refundIdParamsSchema,
   reviewRefundRequestSchema,
 } from "./refunds.schemas.js";
 import { refundsService } from "./refunds.service.js";
@@ -24,7 +24,7 @@ export class RefundsController {
         getAuthenticatedUserId(req),
         query,
       );
-      res.status(200).json(mapPaginatedResult(refunds, mapRefund));
+      res.status(200).json(mapPaginatedResult(refunds, mapCustomerRefund));
     } catch (error) {
       next(error);
     }
@@ -37,7 +37,7 @@ export class RefundsController {
         parseInput(createRefundRequestSchema, req.body),
         getAuditContext(req),
       );
-      res.status(201).json({ data: mapRefund(refund) });
+      res.status(201).json({ data: mapCustomerRefund(refund) });
     } catch (error) {
       next(error);
     }
@@ -57,7 +57,7 @@ export class RefundsController {
   review: RequestHandler = async (req, res, next) => {
     try {
       const refund = await refundsService.review(
-        getPathParam(req.params.refundId),
+        parseInput(refundIdParamsSchema, req.params).refundId,
         parseInput(reviewRefundRequestSchema, req.body),
         getAuthenticatedUserId(req),
         getAuditContext(req),
@@ -71,7 +71,7 @@ export class RefundsController {
   confirmItemReceived: RequestHandler = async (req, res, next) => {
     try {
       const refund = await refundsService.confirmItemReceived(
-        getPathParam(req.params.refundId),
+        parseInput(refundIdParamsSchema, req.params).refundId,
         parseInput(confirmRefundItemReceivedRequestSchema, req.body),
         getAuthenticatedUserId(req),
         getAuditContext(req),
@@ -85,7 +85,7 @@ export class RefundsController {
   execute: RequestHandler = async (req, res, next) => {
     try {
       const refund = await refundsService.execute(
-        getPathParam(req.params.refundId),
+        parseInput(refundIdParamsSchema, req.params).refundId,
         getAuditContext(req),
       );
       res.status(200).json({ data: mapRefund(refund) });

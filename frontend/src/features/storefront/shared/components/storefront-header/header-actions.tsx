@@ -14,9 +14,11 @@ import { StorefrontMobileMenu } from "./storefront-mobile-menu";
 
 export function StorefrontHeaderActions({
   user,
+  showDashboard = false,
   initialCartItemCount = 0,
 }: {
   user: AuthUser | null;
+  showDashboard?: boolean;
   initialCartItemCount?: number;
 }) {
   const storedCartItemCount = useCartStore((state) => state.cart?.itemCount);
@@ -32,7 +34,7 @@ export function StorefrontHeaderActions({
       {user ? (
         <>
           <NotificationCenter />
-          <AccountMenu user={user} />
+          <AccountMenu user={user} showDashboard={showDashboard} />
         </>
       ) : (
         <Link

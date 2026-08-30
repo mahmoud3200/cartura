@@ -1,6 +1,5 @@
 import type { AnalyticsRangePreset } from "@cartura/contracts/analytics";
 
-import type { Prisma } from "../../generated/prisma/client.js";
 import { ANALYTICS_RANGE_DURATION_MS } from "./analytics.constants.js";
 
 export interface AnalyticsDateRange {
@@ -18,17 +17,6 @@ export function getAnalyticsDateRange(
   const from = duration === null ? null : new Date(to.getTime() - duration);
 
   return { preset, from, to };
-}
-
-export function dateRangeWhere(from: Date | null, to: Date) {
-  return {
-    ...(from ? { gte: from } : {}),
-    lte: to,
-  };
-}
-
-export function decimalToNumber(value: Prisma.Decimal | null) {
-  return value ? Number(value) : 0;
 }
 
 export function roundMoney(value: number) {

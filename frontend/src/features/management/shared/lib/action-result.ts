@@ -1,6 +1,9 @@
+import { getActionRateLimitMetadata } from "@/shared/lib/action-rate-limit";
+import type { ActionRateLimitMetadata } from "@/shared/types";
+
 export type ManagementActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; message: string };
+  | ({ ok: false; message: string } & ActionRateLimitMetadata);
 
 export function managementActionFailure(
   error: unknown,
@@ -11,6 +14,7 @@ export function managementActionFailure(
       error instanceof Error
         ? error.message
         : "The request could not be completed.",
+    ...getActionRateLimitMetadata(error),
   };
 }
 

@@ -1,4 +1,9 @@
 export function createSwaggerHtml(openApiUrl: string): string {
+  const serializedOpenApiUrl = JSON.stringify(openApiUrl).replaceAll(
+    "<",
+    "\\u003c",
+  );
+
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -18,7 +23,7 @@ export function createSwaggerHtml(openApiUrl: string): string {
     <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
     <script>
       window.ui = SwaggerUIBundle({
-        url: "${openApiUrl}",
+        url: ${serializedOpenApiUrl},
         dom_id: "#swagger-ui",
         deepLinking: true,
         persistAuthorization: true,

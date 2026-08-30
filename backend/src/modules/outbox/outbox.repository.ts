@@ -1,9 +1,8 @@
-import type { Prisma } from "../../generated/prisma/client.js";
+import type { Prisma, PrismaClient } from "../../generated/prisma/client.js";
 import { prisma } from "../../infrastructure/database/prisma.js";
-import type {
-  CreateOutboxEventInput,
-  PrismaExecutor,
-} from "./outbox.types.js";
+import type { CreateOutboxEventInput } from "./outbox.types.js";
+
+type PrismaExecutor = PrismaClient | Prisma.TransactionClient;
 
 export class OutboxRepository {
   create(input: CreateOutboxEventInput, client: PrismaExecutor = prisma) {
@@ -29,7 +28,10 @@ export class OutboxRepository {
           },
           {
             status: "processing",
-            updatedAt: { lte: staleBefore },
+            OR: [
+              { claimedAt: null },
+              { claimedAt: { lte: staleBefore } },
+            ],
           },
         ],
       },
@@ -38,50 +40,71 @@ export class OutboxRepository {
     });
   }
 
-  async claim(eventId: string, staleBefore: Date): Promise<boolean> {
+  async claim(input: {
+    eventId: string;
+    availableAt: Date;
+    staleBefore: Date;
+    claimToken: string;
+  }): Promise<boolean> {
     const claimed = await prisma.outboxEvent.updateMany({
       where: {
-        id: eventId,
+        id: input.eventId,
         OR: [
-          { status: "pending" },
+          { status: "pending", availableAt: { lte: input.availableAt } },
           {
             status: "processing",
-            updatedAt: { lte: staleBefore },
+            OR: [
+              { claimedAt: null },
+              { claimedAt: { lte: input.staleBefore } },
+            ],
           },
         ],
       },
       data: {
         status: "processing",
         attempts: { increment: 1 },
+        claimToken: input.claimToken,
+        claimedAt: input.availableAt,
       },
     });
 
     return claimed.count === 1;
   }
 
-  markProcessed(eventId: string) {
-    return prisma.outboxEvent.update({
-      where: { id: eventId },
+  async markProcessed(eventId: string, claimToken: string) {
+    const updated = await prisma.outboxEvent.updateMany({
+      where: { id: eventId, status: "processing", claimToken },
       data: {
         status: "processed",
         processedAt: new Date(),
         lastError: null,
+        claimToken: null,
+        claimedAt: null,
       },
     });
+
+    return updated.count === 1;
   }
 
   markFailedOrPending(input: {
     eventId: string;
+    claimToken: string;
     failed: boolean;
     availableAt: Date;
     lastError: string;
   }) {
-    return prisma.outboxEvent.update({
-      where: { id: input.eventId },
+    return prisma.outboxEvent.updateMany({
+      where: {
+        id: input.eventId,
+        status: "processing",
+        claimToken: input.claimToken,
+      },
       data: {
         status: input.failed ? "failed" : "pending",
         availableAt: input.availableAt,
         lastError: input.lastError,
+        claimToken: null,
+        claimedAt: null,
       },
     });
   }

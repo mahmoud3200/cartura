@@ -1,7 +1,7 @@
 "use client";
 
 import type {
-  Refund,
+  ManagementRefund,
   RefundResolution,
   ReviewRefundRequest,
 } from "@cartura/contracts/refunds";
@@ -19,7 +19,7 @@ export function RefundReviewDialog({
   onClose,
   onSaved,
 }: {
-  refund: Refund;
+  refund: ManagementRefund;
   onClose: () => void;
   onSaved: () => void;
 }) {
