@@ -1,10 +1,11 @@
 import "server-only";
 
-import { getInternalServiceHeaders } from "@/shared/api/internal-service-auth";
+import { getInternalServiceAuthorizationHeaders } from "@/shared/api/internal-service-auth";
 import { getRateLimitResponseMetadata } from "@/shared/api/rate-limit-headers";
 
-const apiBaseUrl = (process.env.CARTURA_API_URL ?? "http://localhost:4000")
-  .replace(/\/$/, "");
+const apiBaseUrl = (
+  process.env.CARTURA_API_URL ?? "http://localhost:4000"
+).replace(/\/$/, "");
 
 export class StorefrontApiError extends Error {
   constructor(
@@ -21,7 +22,7 @@ export class StorefrontApiError extends Error {
 }
 
 export async function fetchCatalogJson(path: string) {
-  const internalServiceHeaders = await getInternalServiceHeaders();
+  const internalServiceHeaders = await getInternalServiceAuthorizationHeaders();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
       Accept: "application/json",
