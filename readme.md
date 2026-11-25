@@ -1,4 +1,4 @@
-# Cartura
+# Cartura (Still in development)
 
 Cartura is an open-source e-commerce application built as a pnpm monorepo. It combines a Next.js storefront and management interface, an Express API, shared Zod contracts, PostgreSQL persistence, Better Auth, Redis-backed background work, Cloudinary media, and Paymob payments.
 
