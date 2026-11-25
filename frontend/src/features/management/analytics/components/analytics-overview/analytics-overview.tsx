@@ -20,7 +20,6 @@ export function AnalyticsOverview({
   return (
     <div className="space-y-5">
       <AnalyticsHero overview={overview} />
-      <CurrentPermissionsView permissionNames={permissionNames} />
       <AnalyticsMetricCards overview={overview} />
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -36,6 +35,10 @@ export function AnalyticsOverview({
       </section>
 
       <PaymentWebhookEventsPanel overview={overview} />
+
+      <footer>
+        <CurrentPermissionsView permissionNames={permissionNames} />
+      </footer>
     </div>
   );
 }
